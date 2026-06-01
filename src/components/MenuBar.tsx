@@ -4,6 +4,7 @@ import { useUi } from "../lib/ui";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuSeparator } from "./ui/menu";
 import { LANGUAGES, languagePatch, LangCode } from "../lib/languages";
+import { saveDocument, saveDocumentAs, openDocument } from "../lib/documents";
 
 /** Classic menu bar (File / Edit / View / Insert / Format / AI) + brand. */
 export function MenuBar() {
@@ -11,6 +12,11 @@ export function MenuBar() {
   const addFrame = useDoc((s) => s.addFrame);
   const activePageId = useDoc((s) => s.activePageId);
   const updateFrame = useDoc((s) => s.updateFrame);
+  const newDocument = useDoc((s) => s.newDocument);
+  const undo = useDoc((s) => s.undo);
+  const redo = useDoc((s) => s.redo);
+  const fileName = useDoc((s) => s.fileName);
+  const dirty = useDoc((s) => s.dirty);
   const sel = useSelectedFrame();
   const toggleAi = useUi((s) => s.toggleAiPanel);
   const toggleObjectBar = useUi((s) => s.toggleObjectBar);
@@ -26,25 +32,31 @@ export function MenuBar() {
   return (
     <header className="flex items-center justify-between border-b border-line bg-paper px-3 py-1">
       <div className="flex items-center gap-1">
-        {/* Brand */}
+        {/* Brand + current file name */}
         <span className="mr-2 flex items-baseline gap-1.5">
           <span className="font-nastaliq text-xl leading-none text-accent-deep">قلم</span>
           <span className="text-sm font-semibold tracking-tight">Qalam</span>
+          <span className="text-xs text-ink-soft">
+            — {fileName}
+            {dirty ? " •" : ""}
+          </span>
         </span>
 
         <Menu label="File">
+          <MenuItem onSelect={newDocument} shortcut="⌘⇧N">New document</MenuItem>
           <MenuItem onSelect={addPage} shortcut="⌘N">New page</MenuItem>
-          <MenuItem onSelect={soon} disabled shortcut="⌘O">Open…</MenuItem>
+          <MenuItem onSelect={() => openDocument()} shortcut="⌘O">Open…</MenuItem>
           <MenuSeparator />
-          <MenuItem onSelect={soon} disabled shortcut="⌘S">Save</MenuItem>
+          <MenuItem onSelect={() => saveDocument()} shortcut="⌘S">Save</MenuItem>
+          <MenuItem onSelect={() => saveDocumentAs()} shortcut="⇧⌘S">Save As…</MenuItem>
           <MenuSeparator />
           <MenuItem onSelect={() => setPrintOpen(true)} shortcut="⌘P">Print…</MenuItem>
           <MenuItem onSelect={() => setPrintOpen(true)}>Export PDF…</MenuItem>
         </Menu>
 
         <Menu label="Edit">
-          <MenuItem onSelect={soon} disabled shortcut="⌘Z">Undo</MenuItem>
-          <MenuItem onSelect={soon} disabled shortcut="⇧⌘Z">Redo</MenuItem>
+          <MenuItem onSelect={undo} shortcut="⌘Z">Undo</MenuItem>
+          <MenuItem onSelect={redo} shortcut="⇧⌘Z">Redo</MenuItem>
           <MenuSeparator />
           <MenuItem onSelect={soon} disabled shortcut="⌘X">Cut</MenuItem>
           <MenuItem onSelect={soon} disabled shortcut="⌘C">Copy</MenuItem>

@@ -13,9 +13,11 @@ import { TooltipProvider, IconTip } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
 import { useDoc } from "./lib/store";
 import { useUi } from "./lib/ui";
+import { useShortcuts } from "./lib/shortcuts";
 
 export function App() {
   const pages = useDoc((s) => s.pages);
+  useShortcuts();
 
   const aiOpen = useUi((s) => s.aiPanelOpen);
   const objectBarOpen = useUi((s) => s.objectBarOpen);

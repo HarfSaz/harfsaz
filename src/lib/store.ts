@@ -296,6 +296,7 @@ export const useDoc = create<DocState>((set, get) => {
       nextPage.frames = [{ ...nf, text: overflowText + nf.text }, ...nextPage.frames.slice(1)];
 
       return {
+        ...snapshot(s),
         pages,
         activePageId: nextPage.id,
         selectedFrameId: nextPage.frames[0].id,
@@ -311,7 +312,8 @@ export const useDoc = create<DocState>((set, get) => {
     }
     return null;
   },
-}));
+  };
+});
 
 /**
  * Derive the selected {page, frame} for use in render. We subscribe only to the

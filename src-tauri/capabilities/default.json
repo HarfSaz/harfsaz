@@ -15,6 +15,14 @@
     {
       "identifier": "fs:allow-write-file",
       "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$TEMP/**" }]
+    },
+    {
+      "identifier": "fs:allow-read-text-file",
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
+    },
+    {
+      "identifier": "fs:allow-write-text-file",
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
     }
   ]
 }
