@@ -15,6 +15,7 @@ export function StatusBar() {
   const fitZoom = useUi((s) => s.fitZoom);
   const toggleObjectBar = useUi((s) => s.toggleObjectBar);
   const phonetic = useUi((s) => s.phonetic);
+  const setKeyboardHelpOpen = useUi((s) => s.setKeyboardHelpOpen);
 
   // Active keyboard = the selected frame's language.
   const sel = useSelectedFrame();
@@ -30,13 +31,17 @@ export function StatusBar() {
   return (
     <footer className="flex items-center justify-between border-t border-line bg-paper px-4 py-1 text-[11px] text-ink-soft">
       <div className="flex items-center gap-4">
-        <span>
+        <button
+          onClick={() => setKeyboardHelpOpen(true)}
+          title="Show keyboard layout reference"
+          className="rounded px-1 hover:bg-paper-edge"
+        >
           ⌨ Keyboard:{" "}
           <span className="font-medium text-ink">
             {lang.nativeLabel} {lang.label}
           </span>
           {phoneticActive && <span className="text-accent-deep"> · phonetic</span>}
-        </span>
+        </button>
         <span>
           Words: <span className="font-medium text-ink">{words}</span>
         </span>

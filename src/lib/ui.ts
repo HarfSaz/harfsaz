@@ -12,6 +12,9 @@ interface UiState {
   /** Print dialog open. */
   printOpen: boolean;
   setPrintOpen: (v: boolean) => void;
+  /** Keyboard-reference overlay open. */
+  keyboardHelpOpen: boolean;
+  setKeyboardHelpOpen: (v: boolean) => void;
   toggleAiPanel: () => void;
   setAiPanel: (open: boolean) => void;
   toggleObjectBar: () => void;
@@ -33,6 +36,8 @@ export const useUi = create<UiState>((set) => ({
   phonetic: true,
   printOpen: false,
   setPrintOpen: (v) => set({ printOpen: v }),
+  keyboardHelpOpen: false,
+  setKeyboardHelpOpen: (v) => set({ keyboardHelpOpen: v }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanel: (open) => set({ aiPanelOpen: open }),
   toggleObjectBar: () => set((s) => ({ objectBarOpen: !s.objectBarOpen })),

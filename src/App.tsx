@@ -7,6 +7,7 @@ import { Toolbox } from "./components/Toolbox";
 import { Ruler } from "./components/Ruler";
 import { ViewBar } from "./components/ViewBar";
 import { PrintDialog } from "./components/PrintDialog";
+import { KeyboardHelp } from "./components/KeyboardHelp";
 import { PageCanvas } from "./editor/PageCanvas";
 import { AiPanel } from "./components/AiPanel";
 import { TooltipProvider, IconTip } from "./components/ui/tooltip";
@@ -69,6 +70,7 @@ export function App() {
 
         <StatusBar />
         <PrintDialog />
+        <KeyboardHelp />
       </div>
     </TooltipProvider>
   );
