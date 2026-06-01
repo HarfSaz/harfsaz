@@ -3,6 +3,8 @@ import { TextFrame, useDoc } from "../lib/store";
 import { GlyphRenderer } from "./GlyphRenderer";
 import { SuggestionLayer } from "./SuggestionLayer";
 import { RichEditor } from "./RichEditor";
+import { ResizeHandles } from "./ResizeHandles";
+import { useFrameTransform } from "./useFrameTransform";
 import { ensureFontFace, getFont } from "../lib/font";
 import { getLanguage } from "../lib/languages";
 import { useSuggestions } from "../lib/suggestions";
@@ -28,6 +30,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
 
   const mode = useUi((s) => s.viewMode);
   const phonetic = useUi((s) => s.phonetic);
+  const revision = useDoc((s) => s.revision);
   const selected = selectedFrameId === frame.id;
   const font = getFont(frame.fontKey);
   const fontFamily = `"${font.cssFamily}", serif`;
@@ -35,6 +38,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
     (s) => s.items.some((i) => i.frameId === frame.id)
   );
   const relocate = useSuggestions((s) => s.relocate);
+  const { moveProps, startResize } = useFrameTransform(pageId, frame.id);
 
   // Apply an accepted correction: splice the suggestion into the text, then
   // re-resolve the remaining suggestions' spans against the new text.
@@ -82,6 +86,53 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
   // Added layout frames keep their object chrome.
   const isPage = frame.isPageFrame;
 
+  // Image & shape frames render their own content (not the text editor).
+  if (frame.kind === "image" || frame.kind === "shape") {
+    return (
+      <div
+        className={`text-frame${selected ? " selected" : ""}`}
+        style={{
+          left: frame.x,
+          top: frame.y,
+          width: frame.width,
+          height: frame.height,
+          border: frame.borderWidth
+            ? `${frame.borderWidth}px solid ${frame.borderColor}`
+            : undefined,
+          cursor: "move",
+        }}
+        onMouseDown={() => selectFrame(frame.id)}
+        {...moveProps}
+      >
+        {frame.kind === "image" ? (
+          frame.src ? (
+            <img
+              src={frame.src}
+              alt=""
+              draggable={false}
+              className="pointer-events-none h-full w-full select-none"
+              style={{ objectFit: frame.fit ?? "cover", borderRadius: 2 }}
+            />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center bg-paper-edge text-xs text-ink-soft">
+              No image
+            </div>
+          )
+        ) : (
+          // shape
+          <div
+            className="pointer-events-none h-full w-full"
+            style={{
+              background: frame.fill,
+              borderRadius: frame.shape === "ellipse" ? "50%" : 2,
+            }}
+          />
+        )}
+        {selected && <ResizeHandles startResize={startResize} />}
+      </div>
+    );
+  }
+
   return (
     <div
       className={
@@ -119,6 +170,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           phoneticMap={getLanguage(frame.lang).phoneticMap}
           style={textStyle}
           onChange={handleRichChange}
+          revision={revision}
         />
       ) : (
         <GlyphRenderer
@@ -128,6 +180,19 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           height={frame.height}
           fontKey={frame.fontKey}
         />
+      )}
+
+      {/* Move grip + resize handles for selected non-page text frames. The grip
+          lets you drag-move without disturbing text selection inside. */}
+      {selected && !isPage && (
+        <>
+          <span
+            {...moveProps}
+            title="Drag to move"
+            className="absolute -top-3 left-1/2 z-10 h-3 w-8 -translate-x-1/2 cursor-move rounded-t-md bg-accent"
+          />
+          <ResizeHandles startResize={startResize} />
+        </>
       )}
     </div>
   );

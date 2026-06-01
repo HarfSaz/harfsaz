@@ -3,20 +3,57 @@ import { useDoc, useSelectedFrame, TextFrame } from "../lib/store";
 import { Separator } from "./ui/separator";
 import { ColorButton } from "./ui/colorpicker";
 import { IconTip } from "./ui/tooltip";
+import { pickImageFile } from "../lib/image";
 
 /** Object/frame properties bar — fill, border, and exact X/Y/W/H (InPage-style). */
 export function ObjectBar() {
   const sel = useSelectedFrame();
   const updateFrame = useDoc((s) => s.updateFrame);
+  const removeFrame = useDoc((s) => s.removeFrame);
   const f = sel?.frame;
   const dis = !sel;
+  const isImage = f?.kind === "image";
 
   const patch = (p: Partial<TextFrame>) =>
     sel && updateFrame(sel.page.id, sel.frame.id, p);
 
+  async function replaceImage() {
+    const picked = await pickImageFile();
+    if (picked) patch({ src: picked.src });
+  }
+
   return (
     <div className="flex flex-wrap items-center gap-2 border-b border-line bg-surface px-3 py-1.5 text-xs text-ink-soft">
-      <span className="font-semibold uppercase tracking-wider">Frame</span>
+      <span className="font-semibold uppercase tracking-wider">
+        {f?.kind === "image" ? "Image" : f?.kind === "shape" ? "Shape" : "Frame"}
+      </span>
+
+      {/* Image controls */}
+      {isImage && (
+        <>
+          <div className="flex items-center overflow-hidden rounded-md border border-line">
+            {(["cover", "contain"] as const).map((fit) => (
+              <button
+                key={fit}
+                onClick={() => patch({ fit })}
+                className={`px-2 py-1 capitalize transition-colors ${
+                  (f?.fit ?? "cover") === fit ? "bg-accent text-white" : "text-ink hover:bg-paper-edge"
+                }`}
+                title={fit === "cover" ? "Fill the frame (crop)" : "Fit whole image"}
+              >
+                {fit}
+              </button>
+            ))}
+          </div>
+          <button
+            onClick={replaceImage}
+            className="rounded-md border border-line px-2 py-1 text-ink hover:bg-paper-edge"
+          >
+            Replace…
+          </button>
+          <Separator orientation="vertical" />
+        </>
+      )}
 
       {/* Fill */}
       <IconTip label="Fill color">
@@ -57,6 +94,19 @@ export function ObjectBar() {
         <NumField label="W" value={f?.width ?? 0} disabled={dis} onChange={(n) => patch({ width: Math.max(40, n) })} />
         <NumField label="H" value={f?.height ?? 0} disabled={dis} onChange={(n) => patch({ height: Math.max(40, n) })} />
       </span>
+
+      {/* Delete (not for the main page-writing frame) */}
+      {f && !f.isPageFrame && (
+        <>
+          <Separator orientation="vertical" />
+          <button
+            onClick={() => sel && removeFrame(sel.page.id, sel.frame.id)}
+            className="rounded-md border border-line px-2 py-1 text-danger hover:bg-danger/10"
+          >
+            Delete
+          </button>
+        </>
+      )}
     </div>
   );
 }

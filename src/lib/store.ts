@@ -7,14 +7,26 @@ import { useMemo } from "react";
 import { create } from "zustand";
 import { LangCode, Dir, DEFAULT_LANG } from "./languages";
 
+export type FrameKind = "text" | "image" | "shape";
+export type ShapeKind = "rect" | "ellipse";
+
 export interface TextFrame {
   id: string;
+  /** What this frame holds. Defaults to "text" for back-compat. */
+  kind?: FrameKind;
   /** Position/size on the page, in px (page coordinate space). */
   x: number;
   y: number;
   width: number;
   height: number;
   text: string;
+  // ── image frame ──
+  /** Data URL of the placed image (image frames). */
+  src?: string;
+  /** object-fit for the image. */
+  fit?: "cover" | "contain";
+  // ── shape frame ──
+  shape?: ShapeKind;
   /** Rich-text HTML (inline spans for per-selection bold/italic/color). When
    *  empty, falls back to `text` rendered with the frame-level styles. */
   html?: string;
@@ -75,10 +87,20 @@ interface DocState {
   dirty: boolean; // unsaved changes
   past: Page[][]; // undo stack (snapshots of pages)
   future: Page[][]; // redo stack
+  /** Bumped on undo/redo/load so editors force-reseed their DOM even if focused. */
+  revision: number;
 
   setTool: (tool: Tool) => void;
   addPage: () => void;
   addFrame: (pageId: string) => void;
+  /** Insert a frame of `kind` at an explicit rect (from draw-to-create). */
+  addFrameAt: (
+    pageId: string,
+    kind: FrameKind,
+    rect: { x: number; y: number; width: number; height: number },
+    extra?: Partial<TextFrame>
+  ) => void;
+  removeFrame: (pageId: string, frameId: string) => void;
   updateFrame: (pageId: string, frameId: string, patch: Partial<TextFrame>) => void;
   selectFrame: (frameId: string | null) => void;
   setActivePage: (pageId: string) => void;
@@ -127,7 +149,39 @@ function makeFrame(opts?: { fillPage?: boolean }): TextFrame {
     borderWidth: 0,
     borderColor: "#e3dccf",
     isPageFrame: fill,
+    kind: "text",
   };
+}
+
+/** Build a frame of a given kind at an explicit rect (draw-to-create). */
+function makeFrameAt(
+  kind: FrameKind,
+  rect: { x: number; y: number; width: number; height: number },
+  extra?: Partial<TextFrame>
+): TextFrame {
+  const base = makeFrame();
+  const f: TextFrame = {
+    ...base,
+    kind,
+    x: rect.x,
+    y: rect.y,
+    width: Math.max(24, rect.width),
+    height: Math.max(24, rect.height),
+    isPageFrame: false,
+  };
+  if (kind === "text") {
+    f.text = "";
+  } else if (kind === "image") {
+    f.text = "";
+    f.fit = "cover";
+    f.borderWidth = 0;
+  } else if (kind === "shape") {
+    f.text = "";
+    f.shape = "rect";
+    f.fill = "#9a6b3f";
+    f.borderWidth = 0;
+  }
+  return { ...f, ...extra };
 }
 
 function makePage(): Page {
@@ -160,6 +214,7 @@ export const useDoc = create<DocState>((set, get) => {
   dirty: false,
   past: [],
   future: [],
+  revision: 0,
 
   setTool: (tool) => set({ activeTool: tool }),
 
@@ -185,6 +240,28 @@ export const useDoc = create<DocState>((set, get) => {
         selectedFrameId: f.id,
       };
     }),
+
+  addFrameAt: (pageId, kind, rect, extra) =>
+    set((s) => {
+      const f = makeFrameAt(kind, rect, extra);
+      return {
+        ...snapshot(s),
+        pages: s.pages.map((p) =>
+          p.id === pageId ? { ...p, frames: [...p.frames, f] } : p
+        ),
+        selectedFrameId: f.id,
+        activeTool: "select", // return to select after placing
+      };
+    }),
+
+  removeFrame: (pageId, frameId) =>
+    set((s) => ({
+      ...snapshot(s),
+      pages: s.pages.map((p) =>
+        p.id === pageId ? { ...p, frames: p.frames.filter((fr) => fr.id !== frameId) } : p
+      ),
+      selectedFrameId: s.selectedFrameId === frameId ? null : s.selectedFrameId,
+    })),
 
   updateFrame: (pageId, frameId, patch) =>
     set((s) => {
@@ -221,6 +298,7 @@ export const useDoc = create<DocState>((set, get) => {
         past: s.past.slice(0, -1),
         future: [s.pages, ...s.future].slice(0, HISTORY_LIMIT),
         dirty: true,
+        revision: s.revision + 1, // force editors to reseed from restored html
       };
     }),
 
@@ -233,6 +311,7 @@ export const useDoc = create<DocState>((set, get) => {
         past: [...s.past, s.pages].slice(-HISTORY_LIMIT),
         future: s.future.slice(1),
         dirty: true,
+        revision: s.revision + 1,
       };
     }),
 

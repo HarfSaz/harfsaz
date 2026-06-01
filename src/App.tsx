@@ -7,12 +7,14 @@ import { Toolbox } from "./components/Toolbox";
 import { Ruler } from "./components/Ruler";
 import { ViewBar } from "./components/ViewBar";
 import { PrintDialog } from "./components/PrintDialog";
+import { UpgradeDialog } from "./components/UpgradeDialog";
+import { SettingsDialog } from "./components/SettingsDialog";
 import { KeyboardHelp } from "./components/KeyboardHelp";
 import { PageCanvas } from "./editor/PageCanvas";
 import { AiPanel } from "./components/AiPanel";
 import { TooltipProvider, IconTip } from "./components/ui/tooltip";
 import { Button } from "./components/ui/button";
-import { useDoc } from "./lib/store";
+import { useDoc, useSelectedFrame } from "./lib/store";
 import { useUi } from "./lib/ui";
 import { useShortcuts } from "./lib/shortcuts";
 
@@ -24,12 +26,17 @@ export function App() {
   const objectBarOpen = useUi((s) => s.objectBarOpen);
   const toggleAi = useUi((s) => s.toggleAiPanel);
 
+  // Show the frame/object bar when toggled on, OR whenever a placed (non-page)
+  // frame is selected — so image/shape controls are always reachable.
+  const sel = useSelectedFrame();
+  const showObjectBar = objectBarOpen || (!!sel && !sel.frame.isPageFrame);
+
   return (
     <TooltipProvider delayDuration={300}>
       <div className="flex h-full flex-col" dir="ltr">
         <MenuBar />
         <Toolbar />
-        {objectBarOpen && <ObjectBar />}
+        {showObjectBar && <ObjectBar />}
 
         <div className="flex min-h-0 flex-1">
           <Toolbox />
@@ -70,6 +77,8 @@ export function App() {
 
         <StatusBar />
         <PrintDialog />
+        <UpgradeDialog />
+        <SettingsDialog />
         <KeyboardHelp />
       </div>
     </TooltipProvider>
