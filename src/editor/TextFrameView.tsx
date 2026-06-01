@@ -5,6 +5,7 @@ import { SuggestionLayer } from "./SuggestionLayer";
 import { RichEditor } from "./RichEditor";
 import { ResizeHandles } from "./ResizeHandles";
 import { useFrameTransform } from "./useFrameTransform";
+import { Shape } from "./shapes";
 import { ensureFontFace, getFont } from "../lib/font";
 import { getLanguage } from "../lib/languages";
 import { useSuggestions } from "../lib/suggestions";
@@ -119,13 +120,13 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
             </div>
           )
         ) : (
-          // shape
-          <div
-            className="pointer-events-none h-full w-full"
-            style={{
-              background: frame.fill,
-              borderRadius: frame.shape === "ellipse" ? "50%" : 2,
-            }}
+          <Shape
+            kind={frame.shape ?? "rect"}
+            width={frame.width}
+            height={frame.height}
+            fill={frame.fill}
+            borderWidth={frame.borderWidth}
+            borderColor={frame.borderColor}
           />
         )}
         {selected && <ResizeHandles startResize={startResize} />}

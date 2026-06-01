@@ -8,7 +8,14 @@ import { create } from "zustand";
 import { LangCode, Dir, DEFAULT_LANG } from "./languages";
 
 export type FrameKind = "text" | "image" | "shape";
-export type ShapeKind = "rect" | "ellipse";
+export type ShapeKind =
+  | "rect"
+  | "rounded"
+  | "ellipse"
+  | "line"
+  | "triangle"
+  | "arrow"
+  | "star";
 
 export interface TextFrame {
   id: string;
@@ -193,10 +200,36 @@ const firstPage = makePage();
 
 const HISTORY_LIMIT = 100;
 
+// ── Typing-undo coalescing state ────────────────────────────────────────────
+// We checkpoint history at WORD boundaries so ⌘Z undoes a word at a time (like
+// Word), not the whole typing session. The rule: a keystroke starts a NEW undo
+// group (snapshot) when it begins a new word — i.e. the previous text ended at a
+// word boundary (space/newline/punctuation) — or when the frame changed, or
+// after a typing pause. Otherwise the keystroke coalesces into the current word.
+const COALESCE_PAUSE_MS = 1200;
+const SEP = /[\s.,،؛؟!?:؛\n]/;
+let lastEditFrame: string | null = null;
+let lastEditAt = 0;
+
+/** Whether `text` currently ends at a word boundary (so the next char = new word). */
+function endsAtWordBoundary(text: string): boolean {
+  if (text.length === 0) return true;
+  return SEP.test(text.slice(-1));
+}
+
+/** Cheap structural equality for two page snapshots (skips redundant undo steps). */
+function samePages(a: Page[], b: Page[]): boolean {
+  if (a === b) return true;
+  try {
+    return JSON.stringify(a) === JSON.stringify(b);
+  } catch {
+    return false;
+  }
+}
+
 export const useDoc = create<DocState>((set, get) => {
   // Push the current pages onto the undo stack and mark dirty. Call BEFORE a
-  // mutation. Coalescing of rapid edits (typing) is handled by the caller via
-  // updateFrame's text-only fast path below.
+  // mutation.
   const snapshot = (s: DocState): Partial<DocState> => ({
     past: [...s.past, s.pages].slice(-HISTORY_LIMIT),
     future: [],
@@ -265,13 +298,43 @@ export const useDoc = create<DocState>((set, get) => {
 
   updateFrame: (pageId, frameId, patch) =>
     set((s) => {
-      // Coalesce consecutive text/html-only edits (typing) into one history
-      // entry: only snapshot when the previous undo entry isn't already a
-      // content edit on this same frame. Cheap heuristic: snapshot unless the
-      // patch is purely text/html (typing) and we're already dirty.
+      // Typing (text/html-only edits) coalesces into WORD-sized undo steps; any
+      // other change (move, style, font, …) always snapshots.
       const isContentOnly =
         Object.keys(patch).every((k) => k === "text" || k === "html");
-      const base = isContentOnly && s.dirty ? { dirty: true } : snapshot(s);
+
+      const prevFrame = s.pages
+        .find((p) => p.id === pageId)
+        ?.frames.find((f) => f.id === frameId);
+      const prevText = prevFrame?.text ?? "";
+      const prevHtml = prevFrame?.html ?? "";
+
+      let base: Partial<DocState>;
+      if (!isContentOnly) {
+        base = snapshot(s); // moves, styling, etc. always checkpoint
+      } else {
+        // No real change? (e.g. an emit that didn't alter content) → don't push
+        // an empty undo step.
+        const nextText = (patch.text as string | undefined) ?? prevText;
+        const nextHtml = (patch.html as string | undefined) ?? prevHtml;
+        if (nextText === prevText && nextHtml === prevHtml) {
+          return {}; // no-op
+        }
+
+        const now = Date.now();
+        // Start a new undo group when this keystroke begins a new word (the text
+        // BEFORE it ended at a boundary), or the frame changed, or after a pause.
+        const frameChanged = lastEditFrame !== frameId;
+        const paused = now - lastEditAt > COALESCE_PAUSE_MS;
+        const startsNewWord = endsAtWordBoundary(prevText);
+        const newGroup = frameChanged || paused || startsNewWord;
+
+        // Snapshot to open a new group, OR on the very first edit; else coalesce.
+        base = newGroup || !s.dirty ? snapshot(s) : { dirty: true };
+
+        lastEditFrame = frameId;
+        lastEditAt = now;
+      }
       return {
         ...base,
         pages: s.pages.map((p) =>
@@ -291,12 +354,20 @@ export const useDoc = create<DocState>((set, get) => {
 
   undo: () =>
     set((s) => {
-      if (s.past.length === 0) return {};
-      const previous = s.past[s.past.length - 1];
+      let past = s.past;
+      const current = s.pages;
+      // Pop any snapshots that are identical to the current state so ONE undo
+      // always produces a visible change (no "press twice" from redundant steps).
+      let previous = past[past.length - 1];
+      while (past.length > 0 && samePages(previous, current)) {
+        past = past.slice(0, -1);
+        previous = past[past.length - 1];
+      }
+      if (past.length === 0) return {};
       return {
         pages: previous,
-        past: s.past.slice(0, -1),
-        future: [s.pages, ...s.future].slice(0, HISTORY_LIMIT),
+        past: past.slice(0, -1),
+        future: [current, ...s.future].slice(0, HISTORY_LIMIT),
         dirty: true,
         revision: s.revision + 1, // force editors to reseed from restored html
       };
