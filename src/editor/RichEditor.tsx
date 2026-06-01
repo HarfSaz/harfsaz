@@ -75,10 +75,26 @@ export function RichEditor({
       if (!sel || sel.rangeCount === 0) return;
       const range = sel.getRangeAt(0);
       range.deleteContents();
-      const node = document.createTextNode(out);
-      range.insertNode(node);
-      range.setStartAfter(node);
-      range.collapse(true);
+
+      // Insert into the EXISTING text node at the caret when possible, so all
+      // letters of a word live in one contiguous text node. Arabic/Nastaliq
+      // shaping only joins letters within the same text node — inserting a fresh
+      // <text> node per keystroke left each letter isolated (un-joined).
+      const startNode = range.startContainer;
+      if (startNode.nodeType === Node.TEXT_NODE) {
+        const textNode = startNode as Text;
+        const offset = range.startOffset;
+        textNode.insertData(offset, out);
+        const pos = offset + out.length;
+        range.setStart(textNode, pos);
+        range.setEnd(textNode, pos);
+      } else {
+        // Empty editor / element boundary: create the first text node.
+        const node = document.createTextNode(out);
+        range.insertNode(node);
+        range.setStart(node, out.length);
+        range.setEnd(node, out.length);
+      }
       sel.removeAllRanges();
       sel.addRange(range);
       emit();
