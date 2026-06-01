@@ -1,5 +1,4 @@
 import { useDoc, useSelectedFrame, TextFrame } from "../lib/store";
-import { Button } from "./ui/button";
 import { IconTip } from "./ui/tooltip";
 import { Select, SelectOption } from "./ui/select";
 import { ColorButton } from "./ui/colorpicker";
@@ -85,7 +84,7 @@ export function Toolbar() {
   const keepSelection = (e: React.MouseEvent) => e.preventDefault();
 
   return (
-    <div className="flex items-center gap-4 overflow-x-auto border-b border-line bg-surface px-4 py-2">
+    <div className="flex items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-2">
       {/* Language / keyboard */}
       <Group label="Language">
         <Select
@@ -94,7 +93,7 @@ export function Toolbar() {
           disabled={dis}
           onChange={(code) => patch(languagePatch(code as any))}
           options={LANG_OPTIONS}
-          className="w-[170px]"
+          className="w-[150px]"
         />
       </Group>
 
@@ -106,120 +105,167 @@ export function Toolbar() {
           disabled={dis}
           onChange={(v) => patch({ fontKey: v })}
           options={FONT_OPTIONS}
-          className="w-[190px]"
+          className="w-[170px]"
         />
       </Group>
 
       {/* Size */}
       <Group label="Size">
-        <div className="flex items-center rounded-md border border-line">
-          <Button variant="ghost" size="icon-sm" disabled={dis} onClick={() => setSize((f?.fontSize ?? 32) - 2)}>
+        <div className="flex h-8 items-center rounded-lg border border-line bg-paper/60 shadow-sm">
+          <button
+            disabled={dis}
+            onClick={() => setSize((f?.fontSize ?? 32) - 2)}
+            className="flex h-full w-7 items-center justify-center rounded-l-lg text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-45"
+          >
             <Minus size={14} />
-          </Button>
+          </button>
           <input
             type="number"
             value={f?.fontSize ?? 32}
             disabled={dis}
             onChange={(e) => setSize(Number(e.target.value) || 32)}
-            className="w-12 border-x border-line bg-transparent py-1.5 text-center text-sm font-medium outline-none disabled:opacity-45 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+            className="h-full w-10 border-x border-line bg-transparent text-center text-[13px] font-semibold tabular-nums outline-none disabled:opacity-45 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
           />
-          <Button variant="ghost" size="icon-sm" disabled={dis} onClick={() => setSize((f?.fontSize ?? 32) + 2)}>
+          <button
+            disabled={dis}
+            onClick={() => setSize((f?.fontSize ?? 32) + 2)}
+            className="flex h-full w-7 items-center justify-center rounded-r-lg text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-45"
+          >
             <Plus size={14} />
-          </Button>
+          </button>
         </div>
       </Group>
 
-      {/* Style — applies to selection if any, else the whole frame */}
-      <Group label="Style">
-        <div className="flex items-center gap-1" onMouseDown={keepSelection}>
-          <Toggle active={!!f?.bold} disabled={dis} tip="Bold (selection or frame)" onClick={() => styleCmd("bold", "bold")}>
-            <TypeGlyph letter="B" bold />
-          </Toggle>
-          <Toggle active={!!f?.italic} disabled={dis} tip="Italic" onClick={() => styleCmd("italic", "italic")}>
-            <TypeGlyph letter="I" italic />
-          </Toggle>
-          <Toggle active={!!f?.underline} disabled={dis} tip="Underline" onClick={() => styleCmd("underline", "underline")}>
-            <TypeGlyph letter="U" underline />
-          </Toggle>
-        </div>
-      </Group>
+      <Divider />
 
-      {/* Color */}
-      <Group label="Color">
-        <span onMouseDown={keepSelection}>
+      {/* Style + color — applies to selection if any, else the whole frame */}
+      <Segment onMouseDown={keepSelection}>
+        <Toggle active={!!f?.bold} disabled={dis} tip="Bold (selection or frame)" onClick={() => styleCmd("bold", "bold")}>
+          <TypeGlyph letter="B" bold />
+        </Toggle>
+        <Toggle active={!!f?.italic} disabled={dis} tip="Italic" onClick={() => styleCmd("italic", "italic")}>
+          <TypeGlyph letter="I" italic />
+        </Toggle>
+        <Toggle active={!!f?.underline} disabled={dis} tip="Underline" onClick={() => styleCmd("underline", "underline")}>
+          <TypeGlyph letter="U" underline />
+        </Toggle>
+        <span className="mx-0.5 h-5 w-px self-center bg-line" />
+        <span onMouseDown={keepSelection} className="flex items-center">
           <IconTip label="Text color (selection or frame)">
             <ColorButton value={f?.color ?? "#1a1714"} disabled={dis} title="Text color" onChange={colorCmd} />
           </IconTip>
         </span>
-      </Group>
+      </Segment>
 
       {/* Alignment — applies to the current paragraph(s), not the whole frame */}
-      <Group label="Align">
-        <div
-          className="flex items-center overflow-hidden rounded-md border border-line"
-          onMouseDown={keepSelection}
-        >
-          {ALIGNS.map((a, i) => (
-            <IconTip key={a.v} label={a.tip}>
-              <button
-                disabled={dis}
-                onClick={() => alignCmd(a.v)}
-                className={[
-                  "flex h-8 w-9 items-center justify-center text-ink transition-colors hover:bg-paper-edge disabled:opacity-45",
-                  i > 0 ? "border-l border-line" : "",
-                ].join(" ")}
-              >
-                {a.icon}
-              </button>
-            </IconTip>
-          ))}
-        </div>
-      </Group>
+      <Segment onMouseDown={keepSelection}>
+        {ALIGNS.map((a) => (
+          <IconTip key={a.v} label={a.tip}>
+            <button
+              disabled={dis}
+              onClick={() => alignCmd(a.v)}
+              className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-paper-edge disabled:opacity-45"
+            >
+              {a.icon}
+            </button>
+          </IconTip>
+        ))}
+      </Segment>
+
+      <Divider />
 
       {/* Spacing */}
+      <Group label="Line">
+        <Stepper
+          icon={<LineHeight size={13} className="text-ink-soft" />}
+          tip="Line spacing"
+          value={f?.lineHeight ?? 1.7}
+          step={0.1}
+          min={1}
+          max={4}
+          disabled={dis}
+          onChange={(n) => patch({ lineHeight: n || 1.7 })}
+        />
+      </Group>
       <Group label="Spacing">
-        <div className="flex items-center gap-2">
-          <IconTip label="Line spacing">
-            <div className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1">
-              <LineHeight size={14} className="text-ink-soft" />
-              <input
-                type="number"
-                step={0.1}
-                min={1}
-                max={4}
-                value={f?.lineHeight ?? 2.1}
-                disabled={dis}
-                onChange={(e) => patch({ lineHeight: Number(e.target.value) || 2.1 })}
-                className="w-10 bg-transparent text-center text-sm outline-none disabled:opacity-45 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-          </IconTip>
-          <IconTip label="Letter spacing (kashida)">
-            <div className="flex items-center gap-1.5 rounded-md border border-line px-2 py-1">
-              <LetterSpacing size={14} className="text-ink-soft" />
-              <input
-                type="number"
-                step={0.5}
-                value={f?.letterSpacing ?? 0}
-                disabled={dis}
-                onChange={(e) => patch({ letterSpacing: Number(e.target.value) || 0 })}
-                className="w-10 bg-transparent text-center text-sm outline-none disabled:opacity-45 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
-              />
-            </div>
-          </IconTip>
-        </div>
+        <Stepper
+          icon={<LetterSpacing size={13} className="text-ink-soft" />}
+          tip="Letter spacing (kashida)"
+          value={f?.letterSpacing ?? 0}
+          step={0.5}
+          disabled={dis}
+          onChange={(n) => patch({ letterSpacing: n || 0 })}
+        />
       </Group>
     </div>
   );
 }
 
-/** Labeled group with a vertical divider on the right, InPage-style. */
+/** A labeled control: small caption above, control below — clean & airy. */
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1 border-r border-line pr-4 last:border-r-0 last:pr-0">
-      <span className="text-[9px] font-semibold uppercase tracking-wider text-ink-soft">{label}</span>
-      <div className="flex h-9 items-center">{children}</div>
+    <div className="flex flex-col gap-1">
+      <span className="px-0.5 text-[10px] font-medium tracking-wide text-ink-soft/70">{label}</span>
+      <div className="flex h-8 items-center">{children}</div>
     </div>
+  );
+}
+
+/** A grouped pill of icon buttons (segmented control look). */
+function Segment({
+  children,
+  onMouseDown,
+}: {
+  children: React.ReactNode;
+  onMouseDown?: (e: React.MouseEvent) => void;
+}) {
+  return (
+    <div className="mt-[18px] flex h-8 items-center gap-0.5 rounded-lg border border-line bg-paper/60 px-1 shadow-sm" onMouseDown={onMouseDown}>
+      {children}
+    </div>
+  );
+}
+
+function Divider() {
+  return <span className="mx-1 mt-[18px] h-7 w-px self-start bg-line/70" />;
+}
+
+/** Compact icon + number stepper used for spacing controls. */
+function Stepper({
+  icon,
+  tip,
+  value,
+  step,
+  min,
+  max,
+  disabled,
+  onChange,
+}: {
+  icon: React.ReactNode;
+  tip: string;
+  value: number;
+  step: number;
+  min?: number;
+  max?: number;
+  disabled?: boolean;
+  onChange: (n: number) => void;
+}) {
+  return (
+    <IconTip label={tip}>
+      <div className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-paper/60 px-2.5 shadow-sm">
+        {icon}
+        <input
+          type="number"
+          step={step}
+          min={min}
+          max={max}
+          value={value}
+          disabled={disabled}
+          onChange={(e) => onChange(Number(e.target.value))}
+          className="w-9 bg-transparent text-center text-[13px] font-medium tabular-nums outline-none disabled:opacity-45 [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none"
+        />
+      </div>
+    </IconTip>
   );
 }
 
@@ -238,9 +284,14 @@ function Toggle({
 }) {
   return (
     <IconTip label={tip}>
-      <Button variant="toggle" size="icon-sm" data-active={active} disabled={disabled} onClick={onClick}>
+      <button
+        data-active={active}
+        disabled={disabled}
+        onClick={onClick}
+        className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-paper-edge disabled:opacity-45 data-[active=true]:bg-accent data-[active=true]:text-white"
+      >
         {children}
-      </Button>
+      </button>
     </IconTip>
   );
 }

@@ -13,15 +13,15 @@ export function Menu({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="rounded px-2.5 py-1 text-sm text-ink outline-none hover:bg-paper-edge data-[state=open]:bg-paper-edge">
+        <button className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-paper-edge hover:text-ink data-[state=open]:bg-paper-edge data-[state=open]:text-ink">
           {label}
         </button>
       </DropdownMenu.Trigger>
       <DropdownMenu.Portal>
         <DropdownMenu.Content
           align="start"
-          sideOffset={4}
-          className="z-50 min-w-[200px] rounded-lg border border-line bg-surface p-1 shadow-qalam animate-in fade-in-0 zoom-in-95"
+          sideOffset={6}
+          className="z-50 min-w-[220px] rounded-xl border border-line bg-surface p-1.5 shadow-qalam animate-in fade-in-0 zoom-in-95"
         >
           {children}
         </DropdownMenu.Content>
@@ -46,13 +46,13 @@ export function MenuItem({
       disabled={disabled}
       onSelect={onSelect}
       className={cn(
-        "flex cursor-pointer items-center justify-between gap-6 rounded-md px-2.5 py-1.5 text-sm text-ink outline-none",
+        "flex cursor-pointer items-center justify-between gap-6 rounded-lg px-2.5 py-1.5 text-[13px] text-ink outline-none transition-colors",
         "data-[highlighted]:bg-accent data-[highlighted]:text-white",
         "data-[disabled]:pointer-events-none data-[disabled]:opacity-40"
       )}
     >
       <span>{children}</span>
-      {shortcut && <span className="text-xs opacity-60">{shortcut}</span>}
+      {shortcut && <span className="text-[11px] tabular-nums opacity-55">{shortcut}</span>}
     </DropdownMenu.Item>
   );
 }

@@ -33,9 +33,11 @@ export function Select({
         disabled={disabled}
         onChange={(e) => onChange(e.target.value)}
         className={cn(
-          "h-9 appearance-none rounded-md border border-line bg-surface pl-3 pr-8 text-sm text-ink",
-          "outline-none transition-colors hover:border-accent focus-visible:ring-2 focus-visible:ring-ring",
-          "disabled:opacity-45"
+          "h-8 w-full cursor-pointer appearance-none rounded-lg border border-line bg-paper/60 pl-3 pr-8 text-[13px] font-medium text-ink",
+          "shadow-sm outline-none transition-all",
+          "hover:bg-surface hover:border-accent/50",
+          "focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20",
+          "disabled:cursor-default disabled:opacity-45"
         )}
       >
         {groups.map((g) =>
@@ -61,7 +63,7 @@ export function Select({
         )}
       </select>
       <ChevronDown
-        size={15}
+        size={14}
         className="pointer-events-none absolute right-2.5 text-ink-soft"
       />
     </div>

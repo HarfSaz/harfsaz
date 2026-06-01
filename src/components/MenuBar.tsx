@@ -30,14 +30,14 @@ export function MenuBar() {
     sel && updateFrame(sel.page.id, sel.frame.id, languagePatch(code));
 
   return (
-    <header className="flex items-center justify-between border-b border-line bg-paper px-3 py-1">
-      <div className="flex items-center gap-1">
+    <header className="flex items-center justify-between border-b border-line bg-paper/80 px-3 py-1.5 backdrop-blur">
+      <div className="flex items-center gap-0.5">
         {/* Brand (logo) + current file name */}
-        <span className="mr-2 flex items-center gap-2">
-          <img src="/logo.png" alt="Qalam" className="h-5 w-auto" />
-          <span className="text-xs text-ink-soft">
+        <span className="mr-3 flex items-center gap-2.5 border-r border-line/70 pr-3">
+          <img src="/logo.png" alt="Qalam" className="h-[18px] w-auto" />
+          <span className="flex items-center gap-1 text-xs text-ink-soft">
             {fileName}
-            {dirty ? " •" : ""}
+            {dirty && <span className="h-1.5 w-1.5 rounded-full bg-accent/70" title="Unsaved changes" />}
           </span>
         </span>
 
