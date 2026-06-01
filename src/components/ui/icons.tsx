@@ -25,6 +25,9 @@ import {
   Square2StackIcon,
   ArrowsPointingInIcon,
   ViewfinderCircleIcon,
+  Cog6ToothIcon,
+  ArrowUturnLeftIcon,
+  ArrowUturnRightIcon,
 } from "@heroicons/react/24/outline";
 
 export type IconProps = { size?: number; className?: string };
@@ -52,6 +55,9 @@ function alignIcon(rows: [number, number][]) {
       width={size}
       height={size}
       viewBox="0 0 24 24"
+      // Explicit, non-shrinking box — inside a flex pill the SVG was collapsing
+      // to ~2px wide, making the lines look like dots.
+      style={{ width: size, height: size, flexShrink: 0, display: "block" }}
       className={className}
       aria-hidden="true"
       stroke="currentColor"
@@ -59,7 +65,7 @@ function alignIcon(rows: [number, number][]) {
       strokeLinecap="round"
     >
       {rows.map(([x1, x2], i) => (
-        <line key={i} x1={x1} y1={6 + i * 4} x2={x2} y2={6 + i * 4} />
+        <line key={i} x1={x1} y1={5 + i * 4.5} x2={x2} y2={5 + i * 4.5} />
       ))}
     </svg>
   );
@@ -107,6 +113,9 @@ export const CheckAll = wrap(CheckCircleIcon);
 export const Frame = wrap(Square2StackIcon);
 export const Move = wrap(ArrowsPointingInIcon);
 export const Resize = wrap(ViewfinderCircleIcon);
+export const Settings = wrap(Cog6ToothIcon);
+export const Undo = wrap(ArrowUturnLeftIcon);
+export const Redo = wrap(ArrowUturnRightIcon);
 
 /** Styled text glyph for type-format buttons (B / I / U). */
 export function TypeGlyph({
