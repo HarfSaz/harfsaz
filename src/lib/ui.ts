@@ -27,8 +27,8 @@ const clampZoom = (z: number) => Math.max(0.25, Math.min(2, Math.round(z * 100) 
 
 export const useUi = create<UiState>((set) => ({
   aiPanelOpen: true,
-  objectBarOpen: true,
-  zoom: 0.65,
+  objectBarOpen: false,
+  zoom: 1,
   viewMode: "edit",
   phonetic: true,
   printOpen: false,
