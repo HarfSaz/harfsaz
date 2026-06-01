@@ -1,0 +1,250 @@
+/* Qalam — editorial "ink on paper" aesthetic for an Urdu calligraphy tool.
+   Noto Nastaliq Urdu gives correct Nastaliq shaping in the contenteditable layer. */
+@import url("https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --ink: #1a1714;
+  --ink-soft: #534b42;
+  --paper: #fbf8f3;
+  --paper-edge: #efe9df;
+  --surface: #ffffff;
+  --line: #e3dccf;
+  --accent: #9a6b3f;        /* warm sepia/qalam-ink brown */
+  --accent-deep: #6f4a26;
+  --danger: #b4452f;
+  --shadow: 0 6px 28px rgba(40, 30, 18, 0.12);
+  --nastaliq: "Noto Nastaliq Urdu", serif;
+  --ui: "Inter", system-ui, sans-serif;
+}
+
+* { box-sizing: border-box; }
+
+html, body, #root {
+  height: 100%;
+  margin: 0;
+}
+
+body {
+  font-family: var(--ui);
+  color: var(--ink);
+  background: var(--paper-edge);
+}
+
+.app {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+}
+
+/* ---------- Toolbar ---------- */
+.toolbar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 10px 18px;
+  background: var(--surface);
+  border-bottom: 1px solid var(--line);
+  box-shadow: 0 1px 0 rgba(0, 0, 0, 0.02);
+  z-index: 10;
+}
+
+.brand { display: flex; align-items: baseline; gap: 10px; }
+.brand-mark {
+  font-family: var(--nastaliq);
+  font-size: 30px;
+  color: var(--accent-deep);
+  line-height: 1;
+}
+.brand-name { font-weight: 600; font-size: 18px; letter-spacing: 0.2px; }
+.brand-tag { font-size: 12px; color: var(--ink-soft); }
+
+.toolbar-actions { display: flex; align-items: center; gap: 10px; }
+.toolbar-actions .divider { width: 1px; height: 24px; background: var(--line); }
+
+button {
+  font-family: var(--ui);
+  font-size: 13px;
+  padding: 7px 12px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: var(--surface);
+  color: var(--ink);
+  cursor: pointer;
+  transition: all 0.15s ease;
+}
+button:hover:not(:disabled) {
+  border-color: var(--accent);
+  color: var(--accent-deep);
+}
+button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+.font-size { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
+.font-size input {
+  width: 56px; padding: 5px 8px; border: 1px solid var(--line);
+  border-radius: 6px; font-family: var(--ui);
+}
+
+/* ---------- Workspace ---------- */
+.workspace { display: flex; flex: 1; min-height: 0; }
+
+.canvas-area {
+  flex: 1;
+  overflow: auto;
+  background:
+    radial-gradient(circle at 50% 0, #fff 0, var(--paper-edge) 60%);
+  padding: 36px;
+}
+
+.page-scroll { display: flex; justify-content: center; }
+
+.page {
+  position: relative;
+  background: #ffffff;       /* a real white sheet, distinct from the workspace */
+  box-shadow: var(--shadow);
+  border: 1px solid var(--paper-edge);
+  border-radius: 2px;
+}
+
+/* ---------- Text frames ---------- */
+.text-frame {
+  position: absolute;
+  border: 1px dashed transparent;
+  border-radius: 3px;
+}
+.text-frame:hover { border-color: var(--line); }
+.text-frame.selected {
+  border: 1px solid var(--accent);
+  box-shadow: 0 0 0 3px rgba(154, 107, 63, 0.12);
+}
+/* The main page-writing frame: seamless, no box chrome. */
+.text-frame--page,
+.text-frame--page:hover {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+/* Faint margin guide showing the writing area (non-printing, like InPage). */
+.margin-guide {
+  position: absolute;
+  pointer-events: none;
+  border: 1px dashed rgba(154, 107, 63, 0.25);
+}
+.text-frame-edit {
+  font-family: var(--nastaliq);
+  line-height: 1.7;            /* generous, but not so loose it floats the first line */
+  color: var(--ink);
+  display: block;
+  width: 100%;
+  height: 100%;
+  /* Nastaliq fonts reserve ~1em of empty space above the glyph ink; pull the
+     text up so the first line sits near the top of the frame instead of floating. */
+  padding: 0 12px;
+  margin: 0;
+  outline: none;
+  border: none;
+  background: transparent;
+  resize: none;
+  overflow: hidden;
+  white-space: pre-wrap;
+  word-break: break-word;
+  vertical-align: top;        /* text starts at the top, not centered */
+}
+
+/* ---------- Frame toolbar + print-grade renderer ---------- */
+.frame-toolbar {
+  position: absolute;
+  top: -34px;
+  right: 0;
+  display: flex;
+  gap: 4px;
+  background: var(--surface);
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  padding: 3px;
+  box-shadow: var(--shadow);
+}
+.frame-toolbar button {
+  font-size: 11px;
+  padding: 4px 9px;
+  border: none;
+  background: transparent;
+}
+.frame-toolbar button.active {
+  background: var(--accent);
+  color: #fff;
+  border-radius: 6px;
+}
+
+.glyph-svg { display: block; }
+.glyph-path { fill: var(--ink); stroke: none; }
+.overflow-marker { fill: var(--danger); opacity: 0.7; }
+
+.render-hint,
+.render-error {
+  font-family: var(--ui);
+  font-size: 12px;
+  color: var(--ink-soft);
+  padding: 12px;
+  line-height: 1.5;
+}
+.render-error { color: var(--danger); }
+
+/* ---------- AI panel ---------- */
+.ai-panel {
+  width: 340px;
+  flex-shrink: 0;
+  background: var(--surface);
+  border-left: 1px solid var(--line);
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+/* Embedded variant: fills its (already-bordered, already-sized) wrapper. */
+.ai-panel--embedded {
+  width: 100%;
+  border-left: none;
+}
+.ai-header h2 { margin: 0; font-size: 15px; letter-spacing: 0.3px; }
+.ai-warn {
+  margin: 8px 0 0; font-size: 12px; color: var(--danger);
+  background: #fdecec; padding: 8px 10px; border-radius: 8px;
+}
+.ai-warn code, .ai-output code { font-size: 11px; }
+
+.ai-instruction {
+  font-family: var(--ui); font-size: 13px;
+  border: 1px solid var(--line); border-radius: 8px;
+  padding: 8px 10px; resize: vertical;
+}
+
+.ai-group h3 {
+  margin: 0 0 6px; font-size: 11px; text-transform: uppercase;
+  letter-spacing: 0.6px; color: var(--ink-soft);
+}
+.ai-group { margin-bottom: 12px; }
+.ai-buttons { display: flex; flex-wrap: wrap; gap: 6px; }
+.ai-buttons button { font-size: 12px; padding: 6px 10px; }
+
+.ai-status { font-size: 13px; color: var(--accent-deep); }
+.ai-error {
+  font-size: 12px; color: var(--danger);
+  background: #fdecec; padding: 8px 10px; border-radius: 8px; word-break: break-word;
+}
+
+.ai-output {
+  border: 1px solid var(--line); border-radius: 10px; overflow: hidden;
+  background: var(--paper);
+}
+.ai-output-text {
+  font-family: var(--nastaliq); font-size: 22px; line-height: 2.1;
+  padding: 12px 14px; max-height: 260px; overflow-y: auto;
+}
+.ai-output-actions {
+  display: flex; gap: 8px; padding: 8px 10px;
+  border-top: 1px solid var(--line); background: var(--surface);
+}

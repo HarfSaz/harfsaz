@@ -1,0 +1,18 @@
+# dependencies
+node_modules
+.pnpm-store
+
+# build output
+dist
+src-tauri/target
+src-tauri/gen
+
+# env / secrets
+.env
+.env.local
+
+# editor / os
+.DS_Store
+*.log
+.vscode
+.idea
