@@ -9,13 +9,24 @@ const keysCache = new WeakMap<Record<string, string>, string[]>();
 function sortedKeys(map: Record<string, string>): string[] {
   let keys = keysCache.get(map);
   if (!keys) {
-    keys = Object.keys(map).sort((a, b) => b.length - a.length);
+    // Longest first (digraphs win); within equal length, case-sensitive keys
+    // that contain an uppercase letter come first so the Shift layer is matched
+    // before the lowercase base layer.
+    keys = Object.keys(map).sort((a, b) => {
+      if (b.length !== a.length) return b.length - a.length;
+      const aU = a !== a.toLowerCase();
+      const bU = b !== b.toLowerCase();
+      return aU === bU ? 0 : aU ? -1 : 1;
+    });
     keysCache.set(map, keys);
   }
   return keys;
 }
 
-/** Transliterate `input` to the target script using `map`. */
+/** Transliterate `input` to the target script using `map`.
+ *  Two layers: lowercase keys = base layer (matched case-insensitively), and
+ *  keys containing an uppercase letter = Shift layer (matched only when the
+ *  typed character is actually uppercase). */
 export function transliterate(
   input: string,
   map: Record<string, string> | undefined
@@ -24,19 +35,27 @@ export function transliterate(
   const keys = sortedKeys(map);
   let out = "";
   let i = 0;
-  const lower = input.toLowerCase();
-  while (i < lower.length) {
+  while (i < input.length) {
     let matched = false;
     for (const key of keys) {
-      // Match case-sensitively for uppercase keys (e.g. Arabic H, S, T, D, Z),
-      // case-insensitively otherwise.
-      const hasUpper = key !== key.toLowerCase();
-      const src = hasUpper ? input : lower;
-      if (src.startsWith(key, i)) {
-        out += map[key];
-        i += key.length;
-        matched = true;
-        break;
+      const isShift = key !== key.toLowerCase();
+      if (isShift) {
+        // Shift-layer key: match the typed text exactly (case-sensitive).
+        if (input.startsWith(key, i)) {
+          out += map[key];
+          i += key.length;
+          matched = true;
+          break;
+        }
+      } else {
+        // Base-layer key: match case-insensitively against this slice.
+        const slice = input.substr(i, key.length).toLowerCase();
+        if (slice === key) {
+          out += map[key];
+          i += key.length;
+          matched = true;
+          break;
+        }
       }
     }
     if (!matched) {

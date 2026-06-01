@@ -33,30 +33,51 @@ export interface QalamLanguage {
 
 // ── Phonetic maps ──────────────────────────────────────────────────────────
 
+// Standard Urdu Phonetic keyboard (matches the common InPage/CRULP layout):
+// lowercase = base layer, UPPERCASE = Shift layer (retroflex ٹ ڈ ڑ, alt forms
+// آ ص ض ظ ث ذ غ خ ه, special ں ؤ ئ and diacritics). Digraphs (kh, sh…) are
+// kept as a convenience on top, matched first by transliterate().
 const URDU: Record<string, string> = {
-  kh: "خ", gh: "غ", sh: "ش", ch: "چ", th: "تھ", ph: "پھ", bh: "بھ", dh: "دھ",
-  jh: "جھ", zh: "ژ", aa: "آ", ee: "ی", oo: "و",
-  a: "ا", b: "ب", p: "پ", t: "ت", s: "س", j: "ج", d: "د", r: "ر", z: "ز",
-  f: "ف", q: "ق", k: "ک", g: "گ", l: "ل", m: "م", n: "ن", v: "و", w: "و",
-  h: "ہ", y: "ی", e: "ے", i: "ی", o: "و", u: "ُ", c: "ک", x: "کس",
+  // convenience digraphs (tried before single keys)
+  kh: "خ", gh: "غ", sh: "ش", ch: "چ", aa: "آ",
+  // base layer (lowercase)
+  q: "ق", w: "و", e: "ے", r: "ر", t: "ت", y: "ے", u: "ء", i: "ی", o: "ہ", p: "پ",
+  a: "ا", s: "س", d: "د", f: "ف", g: "گ", h: "ح", j: "ج", k: "ک", l: "ل",
+  z: "ز", x: "ش", c: "چ", v: "ط", b: "ب", n: "ن", m: "م",
+  // shift layer (uppercase)
+  Q: "ٌ", W: "ؤ", E: "ٰ", R: "ڑ", T: "ٹ", Y: "ٍ", U: "ئ", I: "ِ", O: "ة", P: "ٗ",
+  A: "آ", S: "ص", D: "ڈ", F: "أ", G: "غ", H: "ھ", J: "ض", K: "خ", L: "ﻻ",
+  Z: "ذ", X: "ژ", C: "ث", V: "ظ", B: "ٔ", N: "ں", M: "ّ",
   ".": "۔", ",": "،", "?": "؟", ";": "؛",
 };
 
-// Arabic uses ك / ي (not the Urdu ک / ی) and ه.
+// Arabic (uses ك / ي). Base = lowercase; Shift = emphatic/alternate forms
+// (ص ض ط ظ ح خ ذ ث غ) and hamza variants (أ إ ؤ ئ ء آ ة).
 const ARABIC: Record<string, string> = {
   kh: "خ", gh: "غ", sh: "ش", th: "ث", dh: "ذ", aa: "آ",
-  a: "ا", b: "ب", t: "ت", j: "ج", H: "ح", d: "د", r: "ر", z: "ز", s: "س",
-  S: "ص", D: "ض", T: "ط", Z: "ظ", f: "ف", q: "ق", k: "ك", l: "ل", m: "م",
-  n: "ن", h: "ه", w: "و", y: "ي", "'": "ع",
+  // base layer
+  q: "ق", w: "و", e: "ع", r: "ر", t: "ت", y: "ي", u: "ء", i: "ي", o: "ه", p: "ث",
+  a: "ا", s: "س", d: "د", f: "ف", g: "غ", h: "ه", j: "ج", k: "ك", l: "ل",
+  z: "ز", x: "ش", c: "ص", v: "ط", b: "ب", n: "ن", m: "م",
+  // shift layer
+  Q: "ً", W: "ؤ", E: "ٰ", R: "ر", T: "ط", Y: "ٍ", U: "ئ", I: "ِ", O: "ة", P: "ُ",
+  A: "آ", S: "ص", D: "ض", F: "أ", G: "إ", H: "ح", J: "ض", K: "خ", L: "لا",
+  Z: "ذ", X: "ظ", C: "ث", V: "ظ", B: "ء", N: "ں", M: "ّ",
+  "'": "ع",
   ".": ".", ",": "،", "?": "؟", ";": "؛",
 };
 
-// Persian/Farsi: Arabic base with Persian letterforms ک گ چ ژ پ ی.
+// Persian/Farsi (ک گ چ ژ پ ی). Base = lowercase; Shift = alternates + hamza/marks.
 const PERSIAN: Record<string, string> = {
   kh: "خ", gh: "غ", sh: "ش", ch: "چ", zh: "ژ", aa: "آ",
-  a: "ا", b: "ب", p: "پ", t: "ت", s: "س", j: "ج", d: "د", r: "ر", z: "ز",
-  f: "ف", q: "ق", k: "ک", g: "گ", l: "ل", m: "م", n: "ن", h: "ه",
-  v: "و", w: "و", y: "ی", e: "ه", i: "ی", o: "و",
+  // base layer
+  q: "ق", w: "و", e: "ع", r: "ر", t: "ت", y: "ی", u: "ء", i: "ی", o: "ه", p: "پ",
+  a: "ا", s: "س", d: "د", f: "ف", g: "گ", h: "ح", j: "ج", k: "ک", l: "ل",
+  z: "ز", x: "ش", c: "چ", v: "ط", b: "ب", n: "ن", m: "م",
+  // shift layer
+  Q: "ً", W: "ؤ", E: "ٰ", R: "ر", T: "ط", Y: "ٍ", U: "ئ", I: "ِ", O: "ة", P: "ُ",
+  A: "آ", S: "ص", D: "ذ", F: "أ", G: "غ", H: "ه", J: "ض", K: "خ", L: "لا",
+  Z: "ژ", X: "ظ", C: "ث", V: "ظ", B: "ء", N: "ں", M: "ّ",
   ".": ".", ",": "،", "?": "؟", ";": "؛",
 };
 

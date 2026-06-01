@@ -17,9 +17,12 @@ export function KeyboardHelp() {
   const map = lang.phoneticMap;
 
   const entries = map ? Object.entries(map) : [];
-  const digraphs = entries.filter(([k]) => k.length > 1 && /[a-z]/i.test(k));
-  const singles = entries.filter(([k]) => k.length === 1 && /[a-z]/i.test(k));
-  const marks = entries.filter(([k]) => !/[a-z]/i.test(k)); // punctuation / harakat keys
+  const isLetter = (k: string) => /[a-z]/i.test(k);
+  const isShift = (k: string) => k.length === 1 && k !== k.toLowerCase();
+  const digraphs = entries.filter(([k]) => k.length > 1 && isLetter(k));
+  const base = entries.filter(([k]) => k.length === 1 && isLetter(k) && !isShift(k));
+  const shift = entries.filter(([k]) => isShift(k));
+  const marks = entries.filter(([k]) => !isLetter(k)); // punctuation / harakat keys
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -46,12 +49,16 @@ export function KeyboardHelp() {
             ) : (
               <>
                 <p className="mb-4 text-xs text-ink-soft">
-                  Type the Roman key on the left to get the {lang.label} letter on the right.
-                  Two-letter combos (kh, sh…) are matched first.
+                  Type the Roman key to get the {lang.label} letter. Hold{" "}
+                  <kbd className="rounded border border-line px-1">Shift</kbd> for the second
+                  layer (retroflex/alternate letters). Two-letter combos (kh, sh…) match first.
                 </p>
 
                 {digraphs.length > 0 && <KeySection title="Combinations" pairs={digraphs} />}
-                <KeySection title="Letters" pairs={singles} />
+                <KeySection title="Letters (normal keys)" pairs={base} />
+                {shift.length > 0 && (
+                  <KeySection title="Shift layer (hold ⇧ Shift)" pairs={shift} />
+                )}
                 {marks.length > 0 && <KeySection title="Marks & punctuation" pairs={marks} />}
               </>
             )}
