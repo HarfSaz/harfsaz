@@ -34,6 +34,16 @@ async fn ai_task(req: AiRequest) -> Result<AiResponse, String> {
     ai::run_task(req).await
 }
 
+/// Add diacritics/harakat (تشكيل) to RTL text for the given base language.
+#[tauri::command]
+async fn ai_add_diacritics(
+    text: String,
+    lang: String,
+    model: Option<String>,
+) -> Result<ai::AiResponse, String> {
+    ai::add_diacritics(text, lang, model).await
+}
+
 /// Proofread Urdu text and return span-level corrections for inline,
 /// non-destructive highlighting (accept/reject per suggestion).
 #[tauri::command]
@@ -82,6 +92,7 @@ pub fn run() {
             layout_text,
             ai_task,
             ai_proofread_inline,
+            ai_add_diacritics,
             list_printers,
             print_file,
             ai_key_present

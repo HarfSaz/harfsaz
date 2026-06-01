@@ -67,7 +67,7 @@ export function RichEditor({
     function onBeforeInput(e: InputEvent) {
       if (!phoneticRef.current || !mapRef.current) return;
       if (e.inputType !== "insertText" || !e.data) return;
-      if (!/[A-Za-z.,?;']/.test(e.data)) return;
+      if (!/[A-Za-z.,?;'0~]/.test(e.data)) return;
 
       e.preventDefault();
       const out = transliterate(e.data, mapRef.current);

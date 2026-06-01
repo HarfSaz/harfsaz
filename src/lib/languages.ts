@@ -7,7 +7,13 @@
 // conversion. Greedy longest-match: digraphs (kh, sh, …) are tried before
 // singles by the transliterate() loop in editor/phonetic.ts.
 
-export type LangCode = "ur" | "ar" | "fa" | "ps" | "sd" | "he" | "en";
+// Base codes + diacritized ("-h" = with harakat/short-vowel marks) variants.
+// The diacritized variants (used by Quranic/religious text and non-native /
+// Asian learners) share the base script but their keyboard also emits the
+// short-vowel marks, and they enable the AI "Add diacritics" action.
+export type LangCode =
+  | "ur" | "ar" | "fa" | "ps" | "sd" | "he" | "en"
+  | "ar-h" | "fa-h" | "ur-h";
 export type Dir = "rtl" | "ltr";
 
 export interface QalamLanguage {
@@ -18,6 +24,11 @@ export interface QalamLanguage {
   defaultFontKey: string; // key into FONTS
   /** Roman→script map; undefined = no transliteration (English pass-through). */
   phoneticMap?: Record<string, string>;
+  /** True for diacritized variants — enables the AI "Add diacritics" action and
+   *  a harakat-emitting keyboard. */
+  diacritized?: boolean;
+  /** Base language code (e.g. "ar" for "ar-h") for AI prompts/grouping. */
+  base?: LangCode;
 }
 
 // ── Phonetic maps ──────────────────────────────────────────────────────────
@@ -77,13 +88,46 @@ const HEBREW: Record<string, string> = {
   r: "ר", e: "ע", o: "ו", u: "ו", i: "י", c: "ק", j: "ג'",
 };
 
+// ── Harakat (short-vowel) marks ─────────────────────────────────────────────
+// Diacritized keyboards add the vowel a/i/u/o → fatha/kasra/damma marks so a
+// learner can type voweled text (e.g. kataba → كَتَبَ). The base consonant maps
+// are reused; only the vowels and a sukun key differ.
+const FATHA = "َ"; // ـَ
+const KASRA = "ِ"; // ـِ
+const DAMMA = "ُ"; // ـُ
+const SUKUN = "ْ"; // ـْ  (no vowel) — typed with "x" or "0"
+const SHADDA = "ّ"; // ـّ (gemination) — typed with "~"
+
+function diacritized(base: Record<string, string>): Record<string, string> {
+  return {
+    ...base,
+    a: FATHA,
+    i: KASRA,
+    e: KASRA,
+    u: DAMMA,
+    o: DAMMA,
+    "0": SUKUN,
+    "~": SHADDA,
+  };
+}
+
+const ARABIC_H = diacritized(ARABIC);
+const PERSIAN_H = diacritized(PERSIAN);
+const URDU_H = diacritized(URDU);
+
 // ── Registry ────────────────────────────────────────────────────────────────
 
 export const LANGUAGES: QalamLanguage[] = [
+  // Defaults chosen from research: Nastaliq for Urdu; Amiri (Naskh) for Arabic;
+  // Vazirmatn (Persian-tuned, covers Urdu letters) for Persian; Scheherazade
+  // (SIL, broad coverage) for Pashto/Sindhi; Frank Ruhl Libre for Hebrew.
   { code: "ur", label: "Urdu", nativeLabel: "اردو", dir: "rtl", defaultFontKey: "noto-nastaliq", phoneticMap: URDU },
+  { code: "ur-h", label: "Urdu (with aerab)", nativeLabel: "اردو ﹷ", dir: "rtl", defaultFontKey: "noto-nastaliq", phoneticMap: URDU_H, diacritized: true, base: "ur" },
   { code: "ar", label: "Arabic", nativeLabel: "العربية", dir: "rtl", defaultFontKey: "amiri", phoneticMap: ARABIC },
+  { code: "ar-h", label: "Arabic (diacritized)", nativeLabel: "العربية ﹷ", dir: "rtl", defaultFontKey: "amiri", phoneticMap: ARABIC_H, diacritized: true, base: "ar" },
   { code: "fa", label: "Persian", nativeLabel: "فارسی", dir: "rtl", defaultFontKey: "vazirmatn", phoneticMap: PERSIAN },
-  { code: "ps", label: "Pashto", nativeLabel: "پښتو", dir: "rtl", defaultFontKey: "noto-naskh", phoneticMap: PASHTO },
+  { code: "fa-h", label: "Persian (diacritized)", nativeLabel: "فارسی ﹷ", dir: "rtl", defaultFontKey: "vazirmatn", phoneticMap: PERSIAN_H, diacritized: true, base: "fa" },
+  { code: "ps", label: "Pashto", nativeLabel: "پښتو", dir: "rtl", defaultFontKey: "scheherazade", phoneticMap: PASHTO },
   { code: "sd", label: "Sindhi", nativeLabel: "سنڌي", dir: "rtl", defaultFontKey: "lateef", phoneticMap: SINDHI },
   { code: "he", label: "Hebrew", nativeLabel: "עברית", dir: "rtl", defaultFontKey: "frank-ruhl", phoneticMap: HEBREW },
   { code: "en", label: "English", nativeLabel: "English", dir: "ltr", defaultFontKey: "noto-sans-arabic" },

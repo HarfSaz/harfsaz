@@ -119,6 +119,12 @@ export function aiProofreadInline(text: string, model?: string): Promise<Proofre
   return invoke<ProofreadResult>("ai_proofread_inline", { text, model });
 }
 
+/** Add diacritics/harakat (تشكيل) to RTL text. lang = base code (ar/fa/ur). */
+export function aiAddDiacritics(text: string, lang: string, model?: string): Promise<AiResponse> {
+  ensureTauri("AI diacritics");
+  return invoke<AiResponse>("ai_add_diacritics", { text, lang, model });
+}
+
 export function aiKeyPresent(): Promise<boolean> {
   // Don't throw on startup in the browser — just report "not present".
   if (!isTauri()) return Promise.resolve(false);

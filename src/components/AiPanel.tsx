@@ -1,8 +1,9 @@
 import { useEffect, useState } from "react";
 import { CheckAll as CheckCheck, Sparkles } from "./ui/icons";
-import { aiTask, aiKeyPresent, aiProofreadInline, AiTask } from "../lib/tauri";
+import { aiTask, aiKeyPresent, aiProofreadInline, aiAddDiacritics, AiTask } from "../lib/tauri";
 import { useDoc, useSelectedFrame } from "../lib/store";
 import { useSuggestions } from "../lib/suggestions";
+import { getLanguage } from "../lib/languages";
 
 /** Quick actions grouped by the AI capabilities (proofread is handled inline). */
 const ACTIONS: { group: string; items: { label: string; task: AiTask }[] }[] = [
@@ -79,6 +80,30 @@ export function AiPanel() {
     }
   }
 
+  // Add diacritics/harakat (تشكيل) to the frame text via Claude. Available for
+  // Arabic/Persian/Urdu (and their diacritized variants).
+  const lang = sel ? getLanguage(sel.frame.lang) : null;
+  const baseLang = lang ? (lang.base ?? lang.code) : "ur";
+  const canDiacritize = ["ar", "fa", "ur"].includes(baseLang);
+
+  async function addDiacritics() {
+    if (!sel) {
+      setError("Select a text frame first.");
+      return;
+    }
+    setBusy(true);
+    setError(null);
+    setOutput("");
+    try {
+      const res = await aiAddDiacritics(sel.frame.text, baseLang);
+      setOutput(res.output);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function run(task: AiTask) {
     if (!sel) {
       setError("Select a text frame first.");
@@ -143,6 +168,18 @@ export function AiPanel() {
             </span>
           )}
         </p>
+      )}
+
+      {/* Add diacritics / harakat (تشكيل) — Arabic/Persian/Urdu only. */}
+      {canDiacritize && (
+        <button
+          className="flex w-full items-center justify-center gap-2 rounded-lg border border-accent px-3 py-2 text-sm font-medium text-accent-deep transition-colors hover:bg-paper-edge disabled:opacity-45"
+          disabled={busy || !sel}
+          onClick={addDiacritics}
+          title="Add short-vowel marks for non-native readers"
+        >
+          Add diacritics · تشکیل
+        </button>
       )}
 
       <textarea

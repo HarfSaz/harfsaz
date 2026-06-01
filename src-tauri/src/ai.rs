@@ -247,6 +247,29 @@ async fn call_claude(model: &str, system: &str, user: &str) -> Result<String, St
     Ok(output)
 }
 
+/// Add diacritics / harakat (تشكيل) to RTL text. `lang` is the base language
+/// ("ar", "fa", "ur") so the prompt names the right tradition. Returns the same
+/// text fully voweled — used by non-native/learner readers and religious text.
+pub async fn add_diacritics(text: String, lang: String, model: Option<String>) -> Result<AiResponse, String> {
+    let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
+    let (name, marks) = match lang.as_str() {
+        "fa" => ("Persian", "zabar/zir/pesh and other Persian diacritics"),
+        "ur" => ("Urdu", "aerab (zabar زبر, zer زیر, pesh پیش, jazm, tashdid) as used in Urdu textbooks and poetry"),
+        _ => ("Arabic", "full tashkeel (fatha, kasra, damma, sukun, shadda, tanwin)"),
+    };
+    let system = format!(
+        "You are an expert in {name} orthography. Add complete, correct diacritics — {marks} — \
+         to the given {name} text so a non-native reader can pronounce it correctly. Preserve the \
+         exact words and order; only add the vowel marks. Return ONLY the diacritized {name} text, \
+         no explanations, no quotes."
+    );
+    let output = call_claude(&model, &system, &text).await?;
+    if output.trim().is_empty() {
+        return Err("Claude returned an empty response.".into());
+    }
+    Ok(AiResponse { output: output.trim().to_string(), model })
+}
+
 /// Proofread Urdu text and return span-level corrections (for inline,
 /// non-destructive highlighting in the editor) instead of a rewritten blob.
 pub async fn proofread_inline(text: String, model: Option<String>) -> Result<ProofreadResult, String> {
