@@ -32,12 +32,11 @@ export function MenuBar() {
   return (
     <header className="flex items-center justify-between border-b border-line bg-paper px-3 py-1">
       <div className="flex items-center gap-1">
-        {/* Brand + current file name */}
-        <span className="mr-2 flex items-baseline gap-1.5">
-          <span className="font-nastaliq text-xl leading-none text-accent-deep">قلم</span>
-          <span className="text-sm font-semibold tracking-tight">Qalam</span>
+        {/* Brand (logo) + current file name */}
+        <span className="mr-2 flex items-center gap-2">
+          <img src="/logo.png" alt="Qalam" className="h-5 w-auto" />
           <span className="text-xs text-ink-soft">
-            — {fileName}
+            {fileName}
             {dirty ? " •" : ""}
           </span>
         </span>
