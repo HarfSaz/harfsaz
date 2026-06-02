@@ -28,6 +28,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
   const selectedFrameId = useDoc((s) => s.selectedFrameId);
   const selectFrame = useDoc((s) => s.selectFrame);
   const updateFrame = useDoc((s) => s.updateFrame);
+  const removeFrame = useDoc((s) => s.removeFrame);
 
   const mode = useUi((s) => s.viewMode);
   const phonetic = useUi((s) => s.phonetic);
@@ -129,7 +130,12 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
             borderColor={frame.borderColor}
           />
         )}
-        {selected && <ResizeHandles startResize={startResize} />}
+        {selected && (
+          <>
+            <DeleteButton onClick={() => removeFrame(pageId, frame.id)} />
+            <ResizeHandles startResize={startResize} />
+          </>
+        )}
       </div>
     );
   }
@@ -192,9 +198,27 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
             title="Drag to move"
             className="absolute -top-3 left-1/2 z-10 h-3 w-8 -translate-x-1/2 cursor-move rounded-t-md bg-accent"
           />
+          <DeleteButton onClick={() => removeFrame(pageId, frame.id)} />
           <ResizeHandles startResize={startResize} />
         </>
       )}
     </div>
+  );
+}
+
+/** Small floating × button to delete the selected frame. */
+function DeleteButton({ onClick }: { onClick: () => void }) {
+  return (
+    <button
+      title="Delete (or press Delete)"
+      onMouseDown={(e) => e.stopPropagation()}
+      onClick={(e) => {
+        e.stopPropagation();
+        onClick();
+      }}
+      className="absolute -right-3 -top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-danger shadow-sm hover:bg-danger hover:text-white"
+    >
+      ✕
+    </button>
   );
 }

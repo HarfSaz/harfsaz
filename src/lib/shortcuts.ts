@@ -19,10 +19,32 @@ const AUTOSAVE_MS = 30_000;
 export function useShortcuts() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
-      const mod = e.metaKey || e.ctrlKey;
-      if (!mod) return;
       const doc = useDoc.getState();
       const ui = useUi.getState();
+
+      // Delete / Backspace removes the selected image/shape frame. We only block
+      // it when the user is actively typing — i.e. focus is in an input/textarea,
+      // or in a *text* frame's editor. Image/shape frames have no text editor, so
+      // selecting one and pressing Delete always removes it (even though the page
+      // frame's editor may still hold focus in the background).
+      if (e.key === "Delete" || e.key === "Backspace") {
+        const sel = doc.getSelectedFrame();
+        if (!sel || sel.frame.isPageFrame) return;
+
+        const ae = document.activeElement as HTMLElement | null;
+        const typingInForm = !!ae?.closest?.("input, textarea");
+        // Editing THIS text frame? (only relevant for text frames)
+        const editingThisText =
+          sel.frame.kind === "text" && !!ae?.closest?.(".text-frame-edit");
+        if (typingInForm || editingThisText) return;
+
+        e.preventDefault();
+        doc.removeFrame(sel.page.id, sel.frame.id);
+        return;
+      }
+
+      const mod = e.metaKey || e.ctrlKey;
+      if (!mod) return;
       const key = e.key.toLowerCase();
 
       switch (key) {
@@ -69,8 +91,10 @@ export function useShortcuts() {
           break;
       }
     }
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
+    // Capture phase so our undo/redo wins over the contentEditable's native undo
+    // (which would otherwise revert DOM text out of sync with our history).
+    window.addEventListener("keydown", onKey, true);
+    return () => window.removeEventListener("keydown", onKey, true);
   }, []);
 
   // Periodic auto-save (only writes when a file exists and there are changes).

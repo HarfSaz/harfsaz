@@ -1,4 +1,4 @@
-import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { useState } from "react";
 import { Cursor, TextTool, ImageTool, ShapeTool } from "./ui/icons";
 import { useDoc, ShapeKind } from "../lib/store";
 import { IconTip } from "./ui/tooltip";
@@ -13,6 +13,7 @@ export function Toolbox() {
   const activePageId = useDoc((s) => s.activePageId);
   const pages = useDoc((s) => s.pages);
 
+  const [shapeOpen, setShapeOpen] = useState(false);
   const page = () => pages.find((p) => p.id === activePageId) ?? pages[0];
 
   // Insert centered on the page at a default size, then user moves/resizes.
@@ -71,41 +72,43 @@ export function Toolbox() {
       </IconTip>
 
       {/* Shape — popover grid of shapes */}
-      <DropdownMenu.Root>
-        <DropdownMenu.Trigger asChild>
-          <button className={tileCls(false)}>
+      {/* Shape — plain state-toggled popover (reliable onClick) */}
+      <div className="relative">
+        <IconTip label="Insert shape (S)">
+          <button className={tileCls(shapeOpen)} onClick={() => setShapeOpen((o) => !o)}>
             <ShapeTool size={18} />
             <span className="text-[10px] font-medium">Shape</span>
           </button>
-        </DropdownMenu.Trigger>
-        <DropdownMenu.Portal>
-          <DropdownMenu.Content
-            side="right"
-            align="start"
-            sideOffset={8}
-            className="z-50 rounded-xl border border-line bg-surface p-2 shadow-qalam animate-in fade-in-0 zoom-in-95"
-          >
-            <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
-              Insert shape
-            </p>
-            <div className="grid grid-cols-3 gap-1.5">
-              {SHAPES.map((s) => (
-                <DropdownMenu.Item key={s.kind} asChild>
+        </IconTip>
+        {shapeOpen && (
+          <>
+            {/* click-away backdrop */}
+            <div className="fixed inset-0 z-40" onClick={() => setShapeOpen(false)} />
+            <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-xl border border-line bg-surface p-2 shadow-qalam">
+              <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
+                Insert shape
+              </p>
+              <div className="grid grid-cols-3 gap-1.5">
+                {SHAPES.map((s) => (
                   <button
-                    onClick={() => insertShape(s.kind)}
+                    key={s.kind}
                     title={s.label}
-                    className="flex h-12 w-12 items-center justify-center rounded-lg border border-line outline-none transition-colors hover:border-accent hover:bg-paper-edge data-[highlighted]:border-accent data-[highlighted]:bg-paper-edge"
+                    onClick={() => {
+                      insertShape(s.kind);
+                      setShapeOpen(false);
+                    }}
+                    className="flex h-12 w-12 items-center justify-center rounded-lg border border-line transition-colors hover:border-accent hover:bg-paper-edge"
                   >
                     <div className="h-6 w-7">
                       <Shape kind={s.kind} width={28} height={24} fill="#9a6b3f" borderWidth={0} borderColor="#9a6b3f" />
                     </div>
                   </button>
-                </DropdownMenu.Item>
-              ))}
+                ))}
+              </div>
             </div>
-          </DropdownMenu.Content>
-        </DropdownMenu.Portal>
-      </DropdownMenu.Root>
+          </>
+        )}
+      </div>
 
       {activeTool === "text" && (
         <p className="mt-1 px-1 text-center text-[9px] leading-tight text-ink-soft">
