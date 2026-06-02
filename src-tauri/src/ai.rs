@@ -155,6 +155,102 @@ fn estimate_tokens(s: &str) -> u32 {
     ((s.chars().count() as f32) / 4.0).ceil() as u32
 }
 
+/// One chat turn from the frontend (role = "user" | "assistant").
+#[derive(Deserialize, Debug, Clone)]
+pub struct ChatMessage {
+    pub role: String,
+    pub content: String,
+}
+
+/// Multi-turn chat with conversation context. Sends the full message history so
+/// the model remembers earlier turns in the session.
+pub async fn chat(messages: Vec<ChatMessage>, system: String) -> Result<AiResponse, String> {
+    let cfg = resolve_provider();
+    let model = cfg.default_model.clone();
+
+    // Build a provider-appropriate JSON messages array.
+    let msgs: Vec<serde_json::Value> = messages
+        .iter()
+        .map(|m| serde_json::json!({ "role": m.role, "content": m.content }))
+        .collect();
+
+    let res = match cfg.provider {
+        Provider::Anthropic => chat_anthropic(&cfg, &model, &system, &msgs).await?,
+        Provider::ClaudeCli => {
+            // CLI is single-shot; flatten the history into one prompt.
+            let flat = messages
+                .iter()
+                .map(|m| format!("{}: {}", m.role, m.content))
+                .collect::<Vec<_>>()
+                .join("\n");
+            call_claude_cli(&model, &system, &flat).await?
+        }
+        _ => chat_openai(&cfg, &model, &system, &msgs).await?,
+    };
+    if res.text.trim().is_empty() {
+        return Err("The model returned an empty response.".into());
+    }
+    Ok(AiResponse {
+        output: res.text,
+        model,
+        tokens: res.input_tokens + res.output_tokens,
+    })
+}
+
+async fn chat_anthropic(cfg: &ProviderConfig, model: &str, system: &str, msgs: &[serde_json::Value]) -> Result<LlmResult, String> {
+    let api_key = cfg.api_key.clone().ok_or_else(|| "No API key set.".to_string())?;
+    let body = serde_json::json!({
+        "model": model, "max_tokens": 2048, "system": system, "messages": msgs
+    });
+    let resp = reqwest::Client::new()
+        .post(&cfg.base_url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", ANTHROPIC_VERSION)
+        .header("content-type", "application/json")
+        .json(&body).send().await
+        .map_err(|e| format!("Request to Claude failed: {e}"))?;
+    let status = resp.status();
+    let json: serde_json::Value = resp.json().await.map_err(|e| format!("Could not parse Claude response: {e}"))?;
+    if !status.is_success() {
+        let msg = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()).unwrap_or("unknown error");
+        return Err(format!("Claude API error ({status}): {msg}"));
+    }
+    let text = json.get("content").and_then(|c| c.as_array())
+        .map(|b| b.iter().filter_map(|x| x.get("text").and_then(|t| t.as_str())).collect::<Vec<_>>().join(""))
+        .unwrap_or_default();
+    let usage = json.get("usage");
+    let it = usage.and_then(|u| u.get("input_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let ot = usage.and_then(|u| u.get("output_tokens")).and_then(|v| v.as_u64()).unwrap_or_else(|| estimate_tokens(&text) as u64) as u32;
+    Ok(LlmResult { text, input_tokens: it, output_tokens: ot })
+}
+
+async fn chat_openai(cfg: &ProviderConfig, model: &str, system: &str, msgs: &[serde_json::Value]) -> Result<LlmResult, String> {
+    let api_key = cfg.api_key.clone().ok_or_else(|| "No API key set for the selected provider.".to_string())?;
+    // Prepend the system message (OpenAI format).
+    let mut all = vec![serde_json::json!({ "role": "system", "content": system })];
+    all.extend_from_slice(msgs);
+    let body = serde_json::json!({ "model": model, "max_tokens": 2048, "messages": all });
+    let resp = reqwest::Client::new()
+        .post(&cfg.base_url)
+        .header("authorization", format!("Bearer {api_key}"))
+        .header("content-type", "application/json")
+        .json(&body).send().await
+        .map_err(|e| format!("Request to LLM provider failed: {e}"))?;
+    let status = resp.status();
+    let json: serde_json::Value = resp.json().await.map_err(|e| format!("Could not parse provider response: {e}"))?;
+    if !status.is_success() {
+        let msg = json.get("error").and_then(|e| e.get("message")).and_then(|m| m.as_str()).unwrap_or("unknown error");
+        return Err(format!("LLM provider error ({status}): {msg}"));
+    }
+    let text = json.get("choices").and_then(|c| c.as_array()).and_then(|a| a.first())
+        .and_then(|c| c.get("message")).and_then(|m| m.get("content")).and_then(|t| t.as_str())
+        .unwrap_or_default().to_string();
+    let usage = json.get("usage");
+    let it = usage.and_then(|u| u.get("prompt_tokens")).and_then(|v| v.as_u64()).unwrap_or(0) as u32;
+    let ot = usage.and_then(|u| u.get("completion_tokens")).and_then(|v| v.as_u64()).unwrap_or_else(|| estimate_tokens(&text) as u64) as u32;
+    Ok(LlmResult { text, input_tokens: it, output_tokens: ot })
+}
+
 async fn call_anthropic(cfg: &ProviderConfig, model: &str, system: &str, user: &str) -> Result<LlmResult, String> {
     let api_key = cfg.api_key.clone().ok_or_else(|| {
         "No API key set. Export QALAM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY).".to_string()

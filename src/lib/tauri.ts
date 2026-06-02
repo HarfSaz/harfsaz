@@ -104,6 +104,17 @@ export function aiTask(params: {
   return invoke<AiResponse>("ai_task", { req: params });
 }
 
+export interface ChatMessage {
+  role: "user" | "assistant";
+  content: string;
+}
+
+/** Multi-turn chat with conversation context (the AI panel thread). */
+export function aiChat(messages: ChatMessage[], system: string): Promise<AiResponse> {
+  ensureTauri("AI chat");
+  return invoke<AiResponse>("ai_chat", { messages, system });
+}
+
 export interface Correction {
   original: string;
   suggestion: string;

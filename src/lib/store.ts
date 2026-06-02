@@ -109,6 +109,10 @@ interface DocState {
   ) => void;
   removeFrame: (pageId: string, frameId: string) => void;
   updateFrame: (pageId: string, frameId: string, patch: Partial<TextFrame>) => void;
+  /** Replace a frame's content programmatically (AI apply/insert). Sets text +
+   *  rebuilds html, snapshots history, and bumps revision so a focused editor
+   *  reseeds. `mode`: "replace" overwrites, "append" adds after existing text. */
+  setFrameContent: (pageId: string, frameId: string, text: string, mode?: "replace" | "append") => void;
   selectFrame: (frameId: string | null) => void;
   setActivePage: (pageId: string) => void;
   flowOverflow: (pageId: string, frameId: string, keepText: string, overflowText: string) => void;
@@ -215,6 +219,11 @@ let lastEditAt = 0;
 function endsAtWordBoundary(text: string): boolean {
   if (text.length === 0) return true;
   return SEP.test(text.slice(-1));
+}
+
+/** Escape one line for safe insertion into the editor's block HTML. */
+function escapeHtmlLine(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
 }
 
 /** Cheap structural equality for two page snapshots (skips redundant undo steps). */
@@ -343,6 +352,34 @@ export const useDoc = create<DocState>((set, get) => {
             : {
                 ...p,
                 frames: p.frames.map((f) => (f.id === frameId ? { ...f, ...patch } : f)),
+              }
+        ),
+      };
+    }),
+
+  setFrameContent: (pageId, frameId, text, mode = "replace") =>
+    set((s) => {
+      const prev = s.pages
+        .find((p) => p.id === pageId)
+        ?.frames.find((f) => f.id === frameId);
+      const prevText = prev?.text ?? "";
+      const nextText = mode === "append" && prevText ? `${prevText}\n${text}` : text;
+      // Rebuild html as block-per-line so the editor renders it and alignment works.
+      const html = nextText
+        .split("\n")
+        .map((l) => `<div>${l ? escapeHtmlLine(l) : "<br>"}</div>`)
+        .join("");
+      return {
+        ...snapshot(s),
+        revision: s.revision + 1, // force the (possibly focused) editor to reseed
+        pages: s.pages.map((p) =>
+          p.id !== pageId
+            ? p
+            : {
+                ...p,
+                frames: p.frames.map((f) =>
+                  f.id === frameId ? { ...f, text: nextText, html } : f
+                ),
               }
         ),
       };

@@ -35,6 +35,15 @@ async fn ai_task(req: AiRequest) -> Result<AiResponse, String> {
     ai::run_task(req).await
 }
 
+/// Multi-turn chat with conversation context (the AI panel's chat thread).
+#[tauri::command]
+async fn ai_chat(
+    messages: Vec<ai::ChatMessage>,
+    system: String,
+) -> Result<ai::AiResponse, String> {
+    ai::chat(messages, system).await
+}
+
 /// Add diacritics/harakat (تشكيل) to RTL text for the given base language.
 #[tauri::command]
 async fn ai_add_diacritics(
@@ -130,6 +139,7 @@ pub fn run() {
             shape_text,
             layout_text,
             ai_task,
+            ai_chat,
             ai_proofread_inline,
             ai_add_diacritics,
             ai_transform,

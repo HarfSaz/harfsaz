@@ -204,10 +204,15 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   flex-direction: column;
   gap: 14px;
 }
-/* Embedded variant: fills its (already-bordered, already-sized) wrapper. */
+/* Embedded variant: fills its (already-bordered, already-sized) wrapper.
+   It manages its own internal scroll region + pinned bottom composer, so the
+   panel itself must NOT scroll or add a flex gap. */
 .ai-panel--embedded {
   width: 100%;
+  height: 100%;
   border-left: none;
+  overflow: hidden;
+  gap: 12px;
 }
 .ai-header h2 { margin: 0; font-size: 15px; letter-spacing: 0.3px; }
 .ai-warn {
