@@ -15,6 +15,12 @@ interface UiState {
   /** Keyboard-reference overlay open. */
   keyboardHelpOpen: boolean;
   setKeyboardHelpOpen: (v: boolean) => void;
+  /** Upgrade / paywall modal open. */
+  upgradeOpen: boolean;
+  setUpgradeOpen: (v: boolean) => void;
+  /** Settings (AI provider/key) dialog open. */
+  settingsOpen: boolean;
+  setSettingsOpen: (v: boolean) => void;
   toggleAiPanel: () => void;
   setAiPanel: (open: boolean) => void;
   toggleObjectBar: () => void;
@@ -38,6 +44,10 @@ export const useUi = create<UiState>((set) => ({
   setPrintOpen: (v) => set({ printOpen: v }),
   keyboardHelpOpen: false,
   setKeyboardHelpOpen: (v) => set({ keyboardHelpOpen: v }),
+  upgradeOpen: false,
+  setUpgradeOpen: (v) => set({ upgradeOpen: v }),
+  settingsOpen: false,
+  setSettingsOpen: (v) => set({ settingsOpen: v }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanel: (open) => set({ aiPanelOpen: open }),
   toggleObjectBar: () => set((s) => ({ objectBarOpen: !s.objectBarOpen })),

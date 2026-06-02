@@ -91,6 +91,7 @@ export type AiTask =
 export interface AiResponse {
   output: string;
   model: string;
+  tokens: number;
 }
 
 export function aiTask(params: {
@@ -111,6 +112,7 @@ export interface Correction {
 export interface ProofreadResult {
   corrections: Correction[];
   model: string;
+  tokens: number;
 }
 
 /** Inline, non-destructive proofread: returns span-level corrections to apply. */
@@ -129,6 +131,30 @@ export function aiKeyPresent(): Promise<boolean> {
   // Don't throw on startup in the browser — just report "not present".
   if (!isTauri()) return Promise.resolve(false);
   return invoke<boolean>("ai_key_present");
+}
+
+/** Name of the active AI provider (Claude / DeepSeek / Mistral / OpenAI / Claude CLI). */
+export function aiProvider(): Promise<string> {
+  if (!isTauri()) return Promise.resolve("—");
+  return invoke<string>("ai_provider");
+}
+
+export interface AiSettingsView {
+  provider: string;
+  model: string;
+  has_key: boolean;
+}
+
+/** Read saved AI settings (provider/model + whether a key is stored). */
+export function getAiSettings(): Promise<AiSettingsView> {
+  if (!isTauri()) return Promise.resolve({ provider: "", model: "", has_key: false });
+  return invoke<AiSettingsView>("get_ai_settings");
+}
+
+/** Save AI settings locally (provider, key, model). Empty key clears it. */
+export function setAiSettings(provider: string, apiKey: string, model: string): Promise<void> {
+  ensureTauri("AI settings");
+  return invoke<void>("set_ai_settings", { provider, apiKey, model });
 }
 
 // ---- Printing ----

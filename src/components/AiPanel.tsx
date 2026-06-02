@@ -1,9 +1,11 @@
 import { useEffect, useState } from "react";
-import { CheckAll as CheckCheck, Sparkles } from "./ui/icons";
+import { CheckAll as CheckCheck, Sparkles, Settings } from "./ui/icons";
 import { aiTask, aiKeyPresent, aiProofreadInline, aiAddDiacritics, AiTask } from "../lib/tauri";
 import { useDoc, useSelectedFrame } from "../lib/store";
 import { useSuggestions } from "../lib/suggestions";
 import { getLanguage } from "../lib/languages";
+import { useUsage, FREE_DAILY_TOKENS } from "../lib/usage";
+import { useUi } from "../lib/ui";
 
 /** Quick actions grouped by the AI capabilities (proofread is handled inline). */
 const ACTIONS: { group: string; items: { label: string; task: AiTask }[] }[] = [
@@ -43,6 +45,28 @@ export function AiPanel() {
     (s) => s.items.filter((i) => i.frameId === sel?.frame.id).length
   );
 
+  // Daily free-tier meter.
+  const plan = useUsage((s) => s.plan);
+  const remaining = useUsage((s) => s.remaining());
+  const canUse = useUsage((s) => s.canUse());
+  const record = useUsage((s) => s.record);
+  const rollDay = useUsage((s) => s.rollDay);
+  const setUpgradeOpen = useUi((s) => s.setUpgradeOpen);
+  const setSettingsOpen = useUi((s) => s.setSettingsOpen);
+  const settingsOpen = useUi((s) => s.settingsOpen);
+  useEffect(() => { rollDay(); }, [rollDay]);
+
+  /** Gate an AI call: block at the daily cap, record tokens after success. */
+  async function gated<T extends { tokens: number }>(fn: () => Promise<T>): Promise<T | null> {
+    if (!canUse) {
+      setUpgradeOpen(true);
+      return null;
+    }
+    const res = await fn();
+    record(res.tokens);
+    return res;
+  }
+
   const [keyOk, setKeyOk] = useState<boolean | null>(null);
   const [busy, setBusy] = useState(false);
   const [proofBusy, setProofBusy] = useState(false);
@@ -51,9 +75,12 @@ export function AiPanel() {
   const [instruction, setInstruction] = useState("");
   const [proofNote, setProofNote] = useState<string | null>(null);
 
+  // Re-check key presence on mount AND whenever the Settings dialog closes, so
+  // saving a key clears the "No API key" warning immediately (no restart).
   useEffect(() => {
+    if (settingsOpen) return; // re-check once it closes
     aiKeyPresent().then(setKeyOk).catch(() => setKeyOk(false));
-  }, []);
+  }, [settingsOpen]);
 
   // Inline proofread: fetch span-level corrections and hand them to the frame
   // for non-destructive highlight + accept/reject (qalam.ai-style).
@@ -66,7 +93,8 @@ export function AiPanel() {
     setError(null);
     setProofNote(null);
     try {
-      const res = await aiProofreadInline(sel.frame.text);
+      const res = await gated(() => aiProofreadInline(sel.frame.text));
+      if (!res) return; // gated → upgrade modal shown
       setForFrame(sel.frame.id, sel.frame.text, res.corrections);
       setProofNote(
         res.corrections.length === 0
@@ -95,8 +123,8 @@ export function AiPanel() {
     setError(null);
     setOutput("");
     try {
-      const res = await aiAddDiacritics(sel.frame.text, baseLang);
-      setOutput(res.output);
+      const res = await gated(() => aiAddDiacritics(sel.frame.text, baseLang));
+      if (res) setOutput(res.output);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -113,12 +141,14 @@ export function AiPanel() {
     setError(null);
     setOutput("");
     try {
-      const res = await aiTask({
-        task,
-        text: sel.frame.text,
-        instruction: instruction.trim() || undefined,
-      });
-      setOutput(res.output);
+      const res = await gated(() =>
+        aiTask({
+          task,
+          text: sel.frame.text,
+          instruction: instruction.trim() || undefined,
+        })
+      );
+      if (res) setOutput(res.output);
     } catch (e) {
       setError(String(e));
     } finally {
@@ -135,13 +165,54 @@ export function AiPanel() {
   return (
     <aside className="ai-panel ai-panel--embedded" dir="ltr">
       <div className="ai-header pl-8">
-        <h2>AI Assistant</h2>
+        <div className="flex items-center justify-between">
+          <h2>AI Assistant</h2>
+          <button
+            title="AI settings (provider & key)"
+            className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
+            onClick={() => setSettingsOpen(true)}
+          >
+            <Settings size={16} />
+          </button>
+        </div>
         {keyOk === false && (
           <p className="ai-warn">
-            No API key. Set <code>QALAM_ANTHROPIC_API_KEY</code> before launching.
+            No API key —{" "}
+            <button className="underline" onClick={() => setSettingsOpen(true)}>
+              open Settings
+            </button>{" "}
+            to add one.
           </p>
         )}
       </div>
+
+      {/* Daily free-tier meter */}
+      {plan === "free" ? (
+        <div className="rounded-lg border border-line bg-paper px-3 py-2">
+          <div className="flex items-center justify-between text-xs">
+            <span className="text-ink-soft">Free AI today</span>
+            <span className="font-medium text-ink">
+              {remaining.toLocaleString()} / {FREE_DAILY_TOKENS.toLocaleString()} tokens
+            </span>
+          </div>
+          <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-paper-edge">
+            <div
+              className={`h-full rounded-full ${remaining > 0 ? "bg-accent" : "bg-danger"}`}
+              style={{ width: `${Math.max(0, Math.min(100, (remaining / FREE_DAILY_TOKENS) * 100))}%` }}
+            />
+          </div>
+          <button
+            className="mt-2 text-xs font-medium text-accent-deep hover:underline"
+            onClick={() => setUpgradeOpen(true)}
+          >
+            {remaining > 0 ? "Upgrade for unlimited →" : "Daily limit reached — Upgrade →"}
+          </button>
+        </div>
+      ) : (
+        <div className="rounded-lg border border-accent bg-paper px-3 py-1.5 text-xs font-medium text-accent-deep">
+          ✦ {plan === "pro" ? "Pro — unlimited AI" : "Your own key — unlimited"}
+        </div>
+      )}
 
       {/* Inline proofread — the marquee, non-destructive action (qalam.ai-style). */}
       <button

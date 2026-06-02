@@ -20,6 +20,7 @@ export function RichEditor({
   phoneticMap,
   style,
   onChange,
+  revision,
 }: {
   html: string | undefined;
   fallbackText: string;
@@ -29,25 +30,57 @@ export function RichEditor({
   phoneticMap: Record<string, string> | undefined;
   style: React.CSSProperties;
   onChange: (html: string, text: string) => void;
+  /** Bumped on undo/redo/load — forces a reseed even while the editor is focused. */
+  revision: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
 
-  // Seed the editor once (and when html is reset externally while not focused).
+  // Make Enter create block elements (<div>) per line instead of <br>. Each line
+  // being its own block is what lets per-paragraph alignment (justifyRight/etc.)
+  // affect a single line instead of the whole frame. Set once on mount.
+  useEffect(() => {
+    try {
+      document.execCommand("defaultParagraphSeparator", false, "div");
+    } catch {
+      /* not supported in some engines — falls back to <div> anyway in Chromium */
+    }
+  }, []);
+
+  // Seed the editor on mount, when html is reset externally while not focused,
+  // OR whenever `revision` bumps (undo/redo/load) — the revision case force-
+  // reseeds even while focused, so ⌘Z visibly reverts the text being typed.
+  const lastRevision = useRef(revision);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const isFocused = document.activeElement === el;
-    if (!initialized.current || (!isFocused && el.innerHTML !== (html ?? ""))) {
-      el.innerHTML = html && html.length > 0 ? html : escapeHtml(fallbackText);
+    const revChanged = revision !== lastRevision.current;
+    lastRevision.current = revision;
+    if (
+      !initialized.current ||
+      revChanged || // undo/redo/load: always reseed
+      (!isFocused && el.innerHTML !== (html ?? ""))
+    ) {
+      el.innerHTML = html && html.length > 0 ? html : seedHtml(fallbackText);
       initialized.current = true;
+      // Restore caret to the end after a forced reseed so typing can continue.
+      if (revChanged && isFocused) placeCaretAtEnd(el);
     }
-  }, [html, fallbackText]);
+  }, [html, fallbackText, revision]);
 
+  // De-dupe emits: a transliterated keystroke fires our beforeinput emit AND the
+  // browser's input event; emitting the same HTML twice can create a redundant
+  // history step. Skip the input-event emit if the HTML hasn't changed since the
+  // last emit.
+  const lastEmitted = useRef<string | null>(null);
   function emit() {
     const el = ref.current;
     if (!el) return;
-    onChange(el.innerHTML, el.innerText);
+    const html = el.innerHTML;
+    if (html === lastEmitted.current) return;
+    lastEmitted.current = html;
+    onChange(html, el.innerText);
   }
 
   // Phonetic transliteration must use a NATIVE `beforeinput` listener: React's
@@ -66,8 +99,15 @@ export function RichEditor({
 
     function onBeforeInput(e: InputEvent) {
       if (!phoneticRef.current || !mapRef.current) return;
+      // Only transliterate genuine, single-character typed input. Reject OS smart
+      // substitutions (insertReplacementText — e.g. macOS "double-space → period",
+      // smart quotes) and composed/IME input, which otherwise sneak punctuation
+      // like `.`→`۔` in when the user only pressed space.
       if (e.inputType !== "insertText" || !e.data) return;
-      if (!/[A-Za-z.,?;'0~]/.test(e.data)) return;
+      if (e.data.length !== 1) return;
+      if ((e as InputEvent & { isComposing?: boolean }).isComposing) return;
+      // Letters, digits, and the explicit punctuation we map. Space passes through.
+      if (!/[A-Za-z0-9.,?;'~]/.test(e.data)) return;
 
       e.preventDefault();
       const out = transliterate(e.data, mapRef.current);
@@ -114,16 +154,33 @@ export function RichEditor({
       dir={dir}
       lang={lang}
       spellCheck={false}
+      autoCorrect="off"
+      autoCapitalize="off"
+      // @ts-expect-error non-standard but respected by Safari/WebKit (Tauri webview)
+      autocorrect="off"
       style={style}
       onInput={emit}
     />
   );
 }
 
-function escapeHtml(s: string): string {
-  return s
-    .replace(/&/g, "&amp;")
-    .replace(/</g, "&lt;")
-    .replace(/>/g, "&gt;")
-    .replace(/\n/g, "<br/>");
+function escape(s: string): string {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/** Move the caret to the end of a contentEditable element. */
+function placeCaretAtEnd(el: HTMLElement) {
+  const range = document.createRange();
+  range.selectNodeContents(el);
+  range.collapse(false);
+  const sel = window.getSelection();
+  sel?.removeAllRanges();
+  sel?.addRange(range);
+}
+
+/** Seed text as one <div> block per line, so each line is an alignable paragraph
+ *  (per-paragraph alignment needs block elements, not <br> separators). */
+function seedHtml(text: string): string {
+  const lines = text.split("\n");
+  return lines.map((l) => `<div>${l.length ? escape(l) : "<br>"}</div>`).join("");
 }

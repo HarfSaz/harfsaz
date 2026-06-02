@@ -1,5 +1,6 @@
-import { Sparkles } from "./ui/icons";
+import { Sparkles, Undo, Redo } from "./ui/icons";
 import { useDoc, useSelectedFrame } from "../lib/store";
+import { IconTip } from "./ui/tooltip";
 import { useUi } from "../lib/ui";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuSeparator } from "./ui/menu";
@@ -15,6 +16,8 @@ export function MenuBar() {
   const newDocument = useDoc((s) => s.newDocument);
   const undo = useDoc((s) => s.undo);
   const redo = useDoc((s) => s.redo);
+  const canUndo = useDoc((s) => s.past.length > 0);
+  const canRedo = useDoc((s) => s.future.length > 0);
   const fileName = useDoc((s) => s.fileName);
   const dirty = useDoc((s) => s.dirty);
   const sel = useSelectedFrame();
@@ -101,9 +104,33 @@ export function MenuBar() {
         </Menu>
       </div>
 
-      <Button variant="primary" size="sm" className="gap-1.5" onClick={toggleAi}>
-        <Sparkles size={14} /> AI
-      </Button>
+      <div className="flex items-center gap-1">
+        {/* Undo / Redo */}
+        <IconTip label="Undo (⌘Z)">
+          <button
+            onClick={undo}
+            disabled={!canUndo}
+            className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-35"
+          >
+            <Undo size={17} />
+          </button>
+        </IconTip>
+        <IconTip label="Redo (⇧⌘Z)">
+          <button
+            onClick={redo}
+            disabled={!canRedo}
+            className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-35"
+          >
+            <Redo size={17} />
+          </button>
+        </IconTip>
+
+        <span className="mx-1 h-5 w-px bg-line" />
+
+        <Button variant="primary" size="sm" className="gap-1.5" onClick={toggleAi}>
+          <Sparkles size={14} /> AI
+        </Button>
+      </div>
     </header>
   );
 }

@@ -37,7 +37,17 @@ type SvgComp = React.ComponentType<React.SVGProps<SVGSVGElement>>;
 const wrap =
   (Comp: SvgComp) =>
   ({ size = 18, className = "" }: IconProps) =>
-    <Comp className={className} width={size} height={size} aria-hidden="true" />;
+    (
+      <Comp
+        className={className}
+        width={size}
+        height={size}
+        aria-hidden="true"
+        // Explicit, non-shrinking box: inside a flex pill the SVG was collapsing
+        // to ~2px, making icons render as faint dots. Same fix as alignIcon.
+        style={{ width: size, height: size, flexShrink: 0, display: "block" }}
+      />
+    );
 
 // Tool / UI icons
 export const Cursor = wrap(CursorArrowRaysIcon);

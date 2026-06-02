@@ -3,6 +3,7 @@
 
 mod ai;
 mod printing;
+mod settings;
 mod shaping;
 
 use ai::{AiRequest, AiResponse};
@@ -72,14 +73,39 @@ fn print_file(
     printing::print_file(file_path, printer, copies, range, grayscale)
 }
 
-/// Lightweight health check the UI can call on startup to confirm the API key
-/// is configured, without leaking the key itself.
+/// Lightweight health check the UI can call on startup to confirm the active
+/// AI provider is configured, without leaking any key.
 #[tauri::command]
 fn ai_key_present() -> bool {
-    std::env::var("QALAM_ANTHROPIC_API_KEY")
-        .or_else(|_| std::env::var("ANTHROPIC_API_KEY"))
-        .map(|k| !k.trim().is_empty())
-        .unwrap_or(false)
+    ai::is_configured()
+}
+
+/// Which AI provider is active (Claude / DeepSeek / Mistral / OpenAI / Claude CLI).
+#[tauri::command]
+fn ai_provider() -> String {
+    ai::provider_name()
+}
+
+/// Read current AI settings (provider + model + whether a key is saved — never
+/// returns the raw key).
+#[tauri::command]
+fn get_ai_settings() -> settings::AiSettingsView {
+    settings::view()
+}
+
+/// Save AI settings (provider, api key, model) to local config. Takes effect
+/// immediately (no restart). If `api_key` is empty, the previously-saved key is
+/// preserved (so the UI can omit it). Pass a single space " " to explicitly clear.
+#[tauri::command]
+fn set_ai_settings(provider: String, api_key: String, model: String) -> Result<(), String> {
+    let key = if api_key.is_empty() {
+        settings::load().api_key // keep existing
+    } else if api_key == " " {
+        String::new() // explicit clear
+    } else {
+        api_key
+    };
+    settings::save(&settings::AiSettings { provider, api_key: key, model })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -95,7 +121,10 @@ pub fn run() {
             ai_add_diacritics,
             list_printers,
             print_file,
-            ai_key_present
+            ai_key_present,
+            ai_provider,
+            get_ai_settings,
+            set_ai_settings
         ])
         .run(tauri::generate_context!())
         .expect("error while running Qalam");

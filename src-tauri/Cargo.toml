@@ -31,3 +31,11 @@ tokio = { version = "1", features = ["macros", "rt-multi-thread"] }
 
 [features]
 custom-protocol = ["tauri/custom-protocol"]
+
+# Optimized release builds: smaller, faster binary for distribution.
+[profile.release]
+opt-level = "s"   # optimize for size
+lto = true        # link-time optimization
+codegen-units = 1 # better optimization (slower compile)
+panic = "abort"   # smaller binary; no unwinding
+strip = true      # strip symbols

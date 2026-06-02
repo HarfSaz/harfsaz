@@ -34,7 +34,7 @@ export const FONTS: QalamFont[] = [
   F("gulzar", "Gulzar", "Gulzar-Regular.ttf", "Nastaliq"),
   F("mirza", "Mirza", "Mirza-Regular.ttf", "Nastaliq"),
 
-  // ── Naskh (clean book/body Arabic-script) ──
+  // ── Naskh (clean book/body Arabic-script; cover Urdu/Arabic/Persian/Sindhi/Pashto) ──
   F("noto-naskh", "Noto Naskh Arabic", "NotoNaskhArabic-Regular.ttf", "Naskh"),
   F("amiri", "Amiri", "Amiri-Regular.ttf", "Naskh"),
   F("amiri-quran", "Amiri Quran", "AmiriQuran-Regular.ttf", "Naskh"),
@@ -42,11 +42,16 @@ export const FONTS: QalamFont[] = [
   F("lateef", "Lateef", "Lateef-Regular.ttf", "Naskh"),
   F("harmattan", "Harmattan", "Harmattan-Regular.ttf", "Naskh"),
   F("markazi", "Markazi Text", "Markazi-Regular.ttf", "Naskh"),
+  F("alkalami", "Alkalami", "Alkalami-Regular.ttf", "Naskh"), // SIL, West-African/Naskh
+  F("ruwudu", "Ruwudu", "Ruwudu-Regular.ttf", "Naskh"), // SIL, traditional Naskh
 
   // ── Kufi (geometric/headline) ──
+  F("qalam-kufi", "Qalam Kufi ✦", "QalamKufi-Regular.ttf", "Kufi"), // Qalam's own original face
   F("noto-kufi", "Noto Kufi Arabic", "NotoKufiArabic-Regular.ttf", "Kufi"),
   F("reem-kufi", "Reem Kufi", "ReemKufi-Regular.ttf", "Kufi"),
   F("el-messiri", "El Messiri", "ElMessiri-Regular.ttf", "Kufi"),
+  F("kufam", "Kufam", "Kufam-Regular.ttf", "Kufi"),
+  F("qahiri", "Qahiri", "Qahiri-Regular.ttf", "Kufi"), // geometric Kufi display
 
   // ── Sans (modern UI/body) ──
   F("noto-sans-arabic", "Noto Sans Arabic", "NotoSansArabic-Regular.ttf", "Sans"),
@@ -58,7 +63,15 @@ export const FONTS: QalamFont[] = [
   F("mada", "Mada", "Mada-Regular.ttf", "Sans"),
   F("rubik", "Rubik", "Rubik-Regular.ttf", "Sans"),
   F("readex", "Readex Pro", "ReadexPro-Regular.ttf", "Sans"),
-  F("vazirmatn", "Vazirmatn", "Vazirmatn-Regular.ttf", "Sans"),
+  F("baloo-bhaijaan", "Baloo Bhaijaan 2", "BalooBhaijaan2-Regular.ttf", "Sans"), // rounded
+
+  // ── Persian (Persian-tuned; some lack Urdu ہ/ے, ideal for Farsi/Arabic) ──
+  F("vazirmatn", "Vazirmatn", "Vazirmatn-Regular.ttf", "Persian"),
+  F("vazir", "Vazir", "Vazir-Regular.ttf", "Persian"),
+  F("estedad", "Estedad", "Estedad-Regular.ttf", "Persian"),
+  F("sahel", "Sahel", "Sahel-Regular.ttf", "Persian"),
+  F("samim", "Samim", "Samim-Regular.ttf", "Persian"),
+  F("shabnam", "Shabnam", "Shabnam-Regular.ttf", "Persian"),
 
   // ── Display / decorative ──
   F("aref-ruqaa", "Aref Ruqaa", "Aref-Ruqaa-Regular.ttf", "Display"),
@@ -67,13 +80,31 @@ export const FONTS: QalamFont[] = [
   F("jomhuria", "Jomhuria", "Jomhuria-Regular.ttf", "Display"),
   F("katibeh", "Katibeh", "Katibeh-Regular.ttf", "Display"),
   F("vibes", "Vibes", "Vibes-Regular.ttf", "Display"),
+  F("lemonada", "Lemonada", "Lemonada-Regular.ttf", "Display"), // rounded display
+  F("marhey", "Marhey", "Marhey-Regular.ttf", "Display"), // playful display
 
   // ── Hebrew ──
   F("frank-ruhl", "Frank Ruhl Libre", "FrankRuhlLibre-Regular.ttf", "Hebrew"),
   F("noto-hebrew", "Noto Sans Hebrew", "NotoSansHebrew-Regular.ttf", "Hebrew"),
+  F("noto-serif-hebrew", "Noto Serif Hebrew", "NotoSerifHebrew-Regular.ttf", "Hebrew"),
+  F("heebo", "Heebo", "Heebo-Regular.ttf", "Hebrew"),
+  F("assistant", "Assistant", "Assistant-Regular.ttf", "Hebrew"),
+  F("david-libre", "David Libre", "DavidLibre-Regular.ttf", "Hebrew"),
+  F("suez-one", "Suez One", "SuezOne-Regular.ttf", "Hebrew"),
+  F("alef", "Alef", "Alef-Regular.ttf", "Hebrew"),
+  F("secular-one", "Secular One", "SecularOne-Regular.ttf", "Hebrew"),
+  F("bellefair", "Bellefair", "Bellefair-Regular.ttf", "Hebrew"),
 ];
 
-export const FONT_STYLE_ORDER: FontStyle[] = ["Nastaliq", "Naskh", "Kufi", "Sans", "Display", "Hebrew"];
+export const FONT_STYLE_ORDER: FontStyle[] = [
+  "Nastaliq",
+  "Naskh",
+  "Kufi",
+  "Sans",
+  "Persian",
+  "Display",
+  "Hebrew",
+];
 
 export const DEFAULT_FONT_KEY = "noto-nastaliq";
 
