@@ -10,6 +10,7 @@ import { PrintDialog } from "./components/PrintDialog";
 import { UpgradeDialog } from "./components/UpgradeDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { KeyboardHelp } from "./components/KeyboardHelp";
+import { SelectionMenu } from "./editor/SelectionMenu";
 import { PageCanvas } from "./editor/PageCanvas";
 import { AiPanel } from "./components/AiPanel";
 import { TooltipProvider, IconTip } from "./components/ui/tooltip";
@@ -80,6 +81,7 @@ export function App() {
         <UpgradeDialog />
         <SettingsDialog />
         <KeyboardHelp />
+        <SelectionMenu />
       </div>
     </TooltipProvider>
   );

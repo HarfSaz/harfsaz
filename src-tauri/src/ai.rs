@@ -365,6 +365,64 @@ pub async fn run_task(req: AiRequest) -> Result<AiResponse, String> {
     Ok(AiResponse { output: res.text, model, tokens: res.input_tokens + res.output_tokens })
 }
 
+// ---- Selection transform (the right-click / selection AI menu) ----
+
+/// Transform a selected snippet of text per `action`, optionally guided by a
+/// free-form `instruction` (for the "custom prompt" action). `lang` is the
+/// frame's language code so the model answers in the right language/script.
+///
+/// Actions: rephrase · grammar · expand · shorten · formal · casual · simplify
+///          · caption · define · translate_en · translate_ur · custom
+pub async fn transform(
+    text: String,
+    action: String,
+    instruction: Option<String>,
+    lang: Option<String>,
+    model: Option<String>,
+) -> Result<AiResponse, String> {
+    let lang_name = match lang.as_deref().unwrap_or("ur") {
+        "ar" | "ar-h" => "Arabic",
+        "fa" | "fa-h" => "Persian",
+        "ps" => "Pashto",
+        "sd" => "Sindhi",
+        "he" => "Hebrew",
+        "en" => "English",
+        _ => "Urdu",
+    };
+    let instr = instruction.unwrap_or_default();
+
+    // Each action gets a tailored instruction; most return ONLY the new text so
+    // the editor can replace the selection directly. "define" returns a short
+    // explanation (meant to be read, not necessarily replace the text).
+    let directive = match action.as_str() {
+        "rephrase" => format!("Rephrase the following {lang_name} text so it reads better, keeping its meaning. Return ONLY the rephrased {lang_name} text."),
+        "grammar" => format!("Correct all spelling, grammar and punctuation in the following {lang_name} text. Preserve meaning and voice. Return ONLY the corrected {lang_name} text."),
+        "expand" => format!("Expand the following {lang_name} text into a longer, richer version. Return ONLY the expanded {lang_name} text."),
+        "shorten" => format!("Make the following {lang_name} text shorter and more concise. Return ONLY the shortened {lang_name} text."),
+        "formal" => format!("Rewrite the following {lang_name} text in a formal, professional tone. Return ONLY the rewritten {lang_name} text."),
+        "casual" => format!("Rewrite the following {lang_name} text in a friendly, casual tone. Return ONLY the rewritten {lang_name} text."),
+        "simplify" => format!("Rewrite the following {lang_name} text in simpler, easier words. Return ONLY the simplified {lang_name} text."),
+        "caption" => format!("Write a short, catchy {lang_name} caption/headline for the following text. Return ONLY the caption in {lang_name}."),
+        "define" => format!("Explain the meaning of the following {lang_name} word or phrase clearly and briefly, in {lang_name}. Return ONLY the explanation."),
+        "translate_en" => "Translate the following text into clear, natural English. Return ONLY the English translation.".to_string(),
+        "translate_ur" => "Translate the following text into natural Urdu (Nastaliq script). Return ONLY the Urdu translation.".to_string(),
+        "custom" => format!("Apply this instruction to the following {lang_name} text: \"{instr}\". Return ONLY the resulting text, no commentary."),
+        other => format!("Apply the action '{other}' to the following {lang_name} text. Return ONLY the resulting text."),
+    };
+
+    let system = format!(
+        "You are an expert {lang_name} writer and editor for a publishing house. {directive} \
+         Do not add quotation marks around your answer or any explanations."
+    );
+
+    let res = call_llm(&system, &text, model.as_deref()).await?;
+    if res.text.trim().is_empty() {
+        return Err("The model returned an empty response.".into());
+    }
+    let model = model.unwrap_or_else(|| resolve_provider().default_model);
+    Ok(AiResponse { output: res.text.trim().to_string(), model, tokens: res.input_tokens + res.output_tokens })
+}
+
 // ---- Inline (non-destructive) proofreading ----
 
 /// A single span-level correction the editor can highlight in place.

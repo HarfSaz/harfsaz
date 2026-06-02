@@ -127,6 +127,22 @@ export function aiAddDiacritics(text: string, lang: string, model?: string): Pro
   return invoke<AiResponse>("ai_add_diacritics", { text, lang, model });
 }
 
+export type TransformAction =
+  | "rephrase" | "grammar" | "expand" | "shorten" | "formal" | "casual"
+  | "simplify" | "caption" | "define" | "translate_en" | "translate_ur" | "custom";
+
+/** Transform selected text per an action (or a custom instruction). */
+export function aiTransform(params: {
+  text: string;
+  action: TransformAction;
+  instruction?: string;
+  lang?: string;
+  model?: string;
+}): Promise<AiResponse> {
+  ensureTauri("AI");
+  return invoke<AiResponse>("ai_transform", params);
+}
+
 export function aiKeyPresent(): Promise<boolean> {
   // Don't throw on startup in the browser — just report "not present".
   if (!isTauri()) return Promise.resolve(false);

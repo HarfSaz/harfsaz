@@ -45,6 +45,19 @@ async fn ai_add_diacritics(
     ai::add_diacritics(text, lang, model).await
 }
 
+/// Transform a selected snippet (rephrase/grammar/caption/define/expand/custom…)
+/// for the selection AI menu.
+#[tauri::command]
+async fn ai_transform(
+    text: String,
+    action: String,
+    instruction: Option<String>,
+    lang: Option<String>,
+    model: Option<String>,
+) -> Result<ai::AiResponse, String> {
+    ai::transform(text, action, instruction, lang, model).await
+}
+
 /// Proofread Urdu text and return span-level corrections for inline,
 /// non-destructive highlighting (accept/reject per suggestion).
 #[tauri::command]
@@ -119,6 +132,7 @@ pub fn run() {
             ai_task,
             ai_proofread_inline,
             ai_add_diacritics,
+            ai_transform,
             list_printers,
             print_file,
             ai_key_present,
