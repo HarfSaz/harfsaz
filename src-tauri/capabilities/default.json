@@ -37,6 +37,16 @@
     {
       "identifier": "fs:allow-remove",
       "allow": [{ "path": "$APPLOCALDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-copy-file",
+      "allow": [
+        { "path": "$TEMP/**" },
+        { "path": "$DOCUMENT/**" },
+        { "path": "$HOME/**" },
+        { "path": "$DOWNLOAD/**" },
+        { "path": "$DESKTOP/**" }
+      ]
     }
   ]
 }

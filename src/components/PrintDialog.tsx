@@ -6,6 +6,9 @@ import { useUi } from "../lib/ui";
 import { Select } from "./ui/select";
 import { listPrinters, printFile, isTauri, PrinterInfo } from "../lib/tauri";
 import { renderPagesToPdfFile } from "../lib/pdf";
+import { renderPagesToVectorPdf } from "../lib/pdfVector";
+import { save as saveDialog } from "@tauri-apps/plugin-dialog";
+import { copyFile } from "@tauri-apps/plugin-fs";
 
 // Page presets in px @96dpi (portrait). Orientation swaps W/H.
 const PAGE_SIZES: Record<string, { w: number; h: number; label: string }> = {
@@ -35,6 +38,10 @@ export function PrintDialog() {
   const [color, setColor] = useState<"color" | "grayscale">("color");
   const [printers, setPrinters] = useState<PrinterInfo[]>([]);
   const [printer, setPrinter] = useState("");
+  // Vector = real glyph outlines from the Rust shaper (resolution-independent,
+  // what printers want). Raster = html2canvas screenshot; keeps the on-screen
+  // look exactly but is a lossy image.
+  const [quality, setQuality] = useState<"vector" | "raster">("vector");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -59,6 +66,47 @@ export function PrintDialog() {
       ? { w: preset.w, h: preset.h }
       : { w: preset.h, h: preset.w };
 
+  /** Render the document to a temp PDF using the selected quality mode. */
+  function renderPdf(): Promise<string> {
+    return quality === "vector"
+      ? renderPagesToVectorPdf()
+      : renderPagesToPdfFile({
+          pageWidthPx: dims.w,
+          pageHeightPx: dims.h,
+          orientation,
+        });
+  }
+
+  /** Export to a PDF the user picks a location for (as opposed to printing). */
+  async function handleExport() {
+    setBusy(true);
+    setError(null);
+    setStatus(null);
+    try {
+      if (!isTauri()) {
+        window.print();
+        return;
+      }
+      setStatus("Rendering PDF…");
+      const tmp = await renderPdf();
+      const target = await saveDialog({
+        filters: [{ name: "PDF", extensions: ["pdf"] }],
+        defaultPath: `${useDoc.getState().fileName || "Untitled"}.pdf`,
+      });
+      if (!target) {
+        setStatus(null);
+        return; // cancelled
+      }
+      await copyFile(tmp, target);
+      setStatus(`Exported ✓ ${target}`);
+      setTimeout(() => setOpen(false), 1400);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
   async function handlePrint() {
     setBusy(true);
     setError(null);
@@ -69,12 +117,8 @@ export function PrintDialog() {
         window.print();
         return;
       }
-      setStatus("Rendering document…");
-      const filePath = await renderPagesToPdfFile({
-        pageWidthPx: dims.w,
-        pageHeightPx: dims.h,
-        orientation,
-      });
+      setStatus(quality === "vector" ? "Rendering vector PDF…" : "Rendering document…");
+      const filePath = await renderPdf();
       setStatus("Sending to printer…");
       const job = await printFile({
         filePath,
@@ -219,6 +263,44 @@ export function PrintDialog() {
             </Field>
           </div>
 
+          {/* Output quality */}
+          <div className="border-t border-line px-5 py-3">
+            <div className="flex items-start gap-4">
+              <label className="flex cursor-pointer items-start gap-2 text-xs">
+                <input
+                  type="radio"
+                  name="pdf-quality"
+                  checked={quality === "vector"}
+                  onChange={() => setQuality("vector")}
+                  className="mt-0.5 accent-accent"
+                />
+                <span>
+                  <span className="font-medium text-ink">Vector (print-grade)</span>
+                  <span className="block text-ink-soft">
+                    True glyph outlines from the Nastaliq shaper — sharp at any
+                    size, small file. Best for printing and publishers.
+                  </span>
+                </span>
+              </label>
+              <label className="flex cursor-pointer items-start gap-2 text-xs">
+                <input
+                  type="radio"
+                  name="pdf-quality"
+                  checked={quality === "raster"}
+                  onChange={() => setQuality("raster")}
+                  className="mt-0.5 accent-accent"
+                />
+                <span>
+                  <span className="font-medium text-ink">Image (exact preview)</span>
+                  <span className="block text-ink-soft">
+                    A screenshot of the page. Use if the vector output looks
+                    different from the editor.
+                  </span>
+                </span>
+              </label>
+            </div>
+          </div>
+
           {/* Status + actions */}
           <div className="border-t border-line px-5 py-3">
             {error && <p className="mb-2 text-xs text-danger">{error}</p>}
@@ -232,6 +314,13 @@ export function PrintDialog() {
               <Dialog.Close className="rounded-md border border-line px-4 py-1.5 text-sm hover:bg-paper-edge">
                 Cancel
               </Dialog.Close>
+              <button
+                onClick={handleExport}
+                disabled={busy}
+                className="flex items-center gap-1.5 rounded-md border border-line px-4 py-1.5 text-sm font-medium hover:bg-paper-edge disabled:opacity-50"
+              >
+                Export PDF…
+              </button>
               <button
                 onClick={handlePrint}
                 disabled={busy}
