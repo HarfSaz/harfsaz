@@ -113,7 +113,18 @@ export function getFont(key: string): QalamFont {
 }
 
 const byteCache = new Map<string, Uint8Array>();
-const faceLoaded = new Set<string>();
+/**
+ * In-flight/completed @font-face registrations, keyed by font key.
+ *
+ * This caches the PROMISE, not a boolean. A boolean flag set after the `await`
+ * is not a guard at all: `ensureAllDocumentFonts` fans out with Promise.all, and
+ * TextFrameView/OcrDialog call in parallel, so every concurrent caller for the
+ * same key passed the check and added its own FontFace object for the same
+ * family. Duplicate faces under one family name make the browser's font
+ * matching non-deterministic — it can settle on one that never paints, which is
+ * exactly how a correctly-loaded font still rendered as fallback serif.
+ */
+const faceRegistrations = new Map<string, Promise<void>>();
 
 /** Fetch (and cache) the raw font bytes for the Rust shaper. */
 export async function loadFontBytes(key: string): Promise<Uint8Array> {
@@ -137,15 +148,27 @@ export async function loadFontBytes(key: string): Promise<Uint8Array> {
  * entirely while everything still "works". Anything that renders text through
  * CSS must therefore await this first (see `ensureAllDocumentFonts`).
  */
-export async function ensureFontFace(key: string): Promise<void> {
-  if (faceLoaded.has(key)) return;
+export function ensureFontFace(key: string): Promise<void> {
+  const existing = faceRegistrations.get(key);
+  if (existing) return existing;
+
   const font = getFont(key);
-  // Quote the family so names with spaces are valid CSS when referenced.
-  const face = new FontFace(font.cssFamily, `url(${font.url})`);
-  await face.load();
-  (document.fonts as FontFaceSet).add(face);
-  faceLoaded.add(key);
+  const run = (async () => {
+    // Absolute URL: a relative one resolves against the document base, which is
+    // not the same in the packaged app as it is under the dev server.
+    const href = new URL(font.url, document.baseURI).href;
+    const face = new FontFace(font.cssFamily, `url("${href}")`);
+    await face.load();
+    (document.fonts as FontFaceSet).add(face);
+  })();
+
+  faceRegistrations.set(key, run);
+  // A failed load must not poison the cache — drop it so a later attempt (e.g.
+  // after a transient fetch error) can retry instead of failing forever.
+  run.catch(() => faceRegistrations.delete(key));
+  return run;
 }
+
 
 /**
  * Register every font used anywhere in `fontKeys`, and wait until the browser
