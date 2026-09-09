@@ -16,6 +16,26 @@ export async function renderPagesToPdfFile(opts: {
   const pageEls = Array.from(document.querySelectorAll<HTMLElement>(".page"));
   if (pageEls.length === 0) throw new Error("No pages to print.");
 
+  // Editing chrome lives INSIDE .page (selection outline, resize grips, the move
+  // grip, the ✕ delete button, the dashed margin guide), so html2canvas would
+  // rasterize whatever happened to be selected straight into the PDF. Flag the
+  // document as exporting for the duration of the capture; `.qalam-exporting`
+  // hides all of it in CSS. Restored in `finally` so an error mid-render can
+  // never leave the editor with its chrome permanently hidden.
+  document.body.classList.add("qalam-exporting");
+  try {
+    return await rasterizePages(pageEls, opts);
+  } finally {
+    document.body.classList.remove("qalam-exporting");
+  }
+}
+
+/** Rasterize the given page elements into a PDF file; returns its path. */
+async function rasterizePages(
+  pageEls: HTMLElement[],
+  opts: { pageWidthPx: number; pageHeightPx: number; orientation: "portrait" | "landscape" }
+): Promise<string> {
+
   // jsPDF works in pt; 1px @96dpi = 0.75pt.
   const pxToPt = (px: number) => px * 0.75;
   const wPt = pxToPt(opts.pageWidthPx);

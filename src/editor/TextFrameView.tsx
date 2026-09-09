@@ -196,7 +196,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           <span
             {...moveProps}
             title="Drag to move"
-            className="absolute -top-3 left-1/2 z-10 h-3 w-8 -translate-x-1/2 cursor-move rounded-t-md bg-accent"
+            className="qalam-chrome absolute -top-3 left-1/2 z-10 h-3 w-8 -translate-x-1/2 cursor-move rounded-t-md bg-accent"
           />
           <DeleteButton onClick={() => removeFrame(pageId, frame.id)} />
           <ResizeHandles startResize={startResize} />
@@ -216,7 +216,7 @@ function DeleteButton({ onClick }: { onClick: () => void }) {
         e.stopPropagation();
         onClick();
       }}
-      className="absolute -right-3 -top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-danger shadow-sm hover:bg-danger hover:text-white"
+      className="qalam-chrome absolute -right-3 -top-3 z-20 flex h-6 w-6 items-center justify-center rounded-full border border-line bg-surface text-danger shadow-sm hover:bg-danger hover:text-white"
     >
       ✕
     </button>

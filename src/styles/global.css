@@ -126,6 +126,25 @@ button:disabled { opacity: 0.45; cursor: not-allowed; }
   border-color: transparent !important;
   box-shadow: none !important;
 }
+/* ---------- Export / print mode ----------
+   While a PDF is being rasterized, `.qalam-exporting` is set on <body>. Every
+   piece of editing chrome lives inside .page, so without this the selected
+   frame's outline, grips, ✕ button and the margin guide are baked into the
+   exported PDF. The guide's "non-printing" comment below was aspirational — this
+   is what actually enforces it. */
+body.qalam-exporting .qalam-chrome,
+body.qalam-exporting .margin-guide,
+body.qalam-exporting .overflow-marker,
+body.qalam-exporting .frame-toolbar {
+  display: none !important;
+}
+body.qalam-exporting .text-frame,
+body.qalam-exporting .text-frame:hover,
+body.qalam-exporting .text-frame.selected {
+  border-color: transparent !important;
+  box-shadow: none !important;
+}
+
 /* Faint margin guide showing the writing area (non-printing, like InPage). */
 .margin-guide {
   position: absolute;

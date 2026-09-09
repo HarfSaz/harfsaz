@@ -24,7 +24,7 @@ export function ResizeHandles({
           key={h}
           onPointerDown={startResize(h)}
           style={{ cursor }}
-          className={`absolute z-10 h-2.5 w-2.5 rounded-sm border border-accent bg-surface shadow-sm ${cls}`}
+          className={`qalam-chrome absolute z-10 h-2.5 w-2.5 rounded-sm border border-accent bg-surface shadow-sm ${cls}`}
         />
       ))}
     </>
