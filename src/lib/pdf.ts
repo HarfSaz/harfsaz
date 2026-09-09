@@ -5,6 +5,8 @@ import jsPDF from "jspdf";
 import html2canvas from "html2canvas-pro";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { tempDir, join } from "@tauri-apps/api/path";
+import { ensureAllDocumentFonts } from "./font";
+import { useDoc } from "./store";
 
 /** Generate a PDF from all .page elements and write it to a temp file.
  *  Returns the absolute file path. */
@@ -15,6 +17,16 @@ export async function renderPagesToPdfFile(opts: {
 }): Promise<string> {
   const pageEls = Array.from(document.querySelectorAll<HTMLElement>(".page"));
   if (pageEls.length === 0) throw new Error("No pages to print.");
+
+  // html2canvas clones the DOM and paints immediately, so any @font-face that is
+  // not already loaded rasterizes as fallback serif — losing Nastaliq entirely
+  // while the export still "succeeds". A font only gets registered when a frame
+  // using it mounts, so changing the font in the toolbar and exporting straight
+  // away would previously produce a generic-looking PDF. Register and await
+  // every font the document actually uses before capturing.
+  await ensureAllDocumentFonts(
+    useDoc.getState().pages.flatMap((p) => p.frames.map((f) => f.fontKey))
+  );
 
   // Editing chrome lives INSIDE .page (selection outline, resize grips, the move
   // grip, the ✕ delete button, the dashed margin guide), so html2canvas would

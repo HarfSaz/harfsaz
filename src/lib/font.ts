@@ -127,14 +127,48 @@ export async function loadFontBytes(key: string): Promise<Uint8Array> {
   return buf;
 }
 
-/** Register a CSS @font-face so the edit-layer textarea renders this family. */
+/**
+ * Register a CSS @font-face so the edit layer renders this family.
+ *
+ * Faces are registered lazily, and `faceLoaded` is keyed so a font is only
+ * fetched once. Note the failure mode this guards against: a family that has
+ * never been registered does NOT error when used in CSS — the browser silently
+ * falls back to the generic `serif`, which for Urdu means losing Nastaliq
+ * entirely while everything still "works". Anything that renders text through
+ * CSS must therefore await this first (see `ensureAllDocumentFonts`).
+ */
 export async function ensureFontFace(key: string): Promise<void> {
   if (faceLoaded.has(key)) return;
   const font = getFont(key);
+  // Quote the family so names with spaces are valid CSS when referenced.
   const face = new FontFace(font.cssFamily, `url(${font.url})`);
   await face.load();
   (document.fonts as FontFaceSet).add(face);
   faceLoaded.add(key);
+}
+
+/**
+ * Register every font used anywhere in `fontKeys`, and wait until the browser
+ * reports them ready to paint.
+ *
+ * Call this before ANY CSS-based render of the whole document — html2canvas in
+ * particular clones the DOM and paints immediately, so a face that is still
+ * loading (or was never registered, because the user changed the font from the
+ * toolbar without that frame ever mounting) rasterizes as fallback serif. That
+ * is the "exported PDF shows a generic font" bug.
+ *
+ * Failures are tolerated per font: one missing file must not block the export.
+ */
+export async function ensureAllDocumentFonts(fontKeys: Iterable<string>): Promise<void> {
+  const unique = Array.from(new Set(fontKeys));
+  await Promise.all(unique.map((k) => ensureFontFace(k).catch(() => {})));
+  // document.fonts.ready resolves once pending loads have settled, which is what
+  // actually guarantees the next paint uses the real faces rather than fallbacks.
+  try {
+    await (document as Document & { fonts: FontFaceSet }).fonts.ready;
+  } catch {
+    /* non-fatal */
+  }
 }
 
 /** Back-compat for the old single-font helper. */

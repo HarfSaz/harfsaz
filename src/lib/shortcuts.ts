@@ -3,6 +3,7 @@ import { useEffect } from "react";
 import { useDoc } from "./store";
 import { useUi } from "./ui";
 import { useSearch } from "./search";
+import { ensureAllDocumentFonts } from "./font";
 import {
   saveDocument,
   saveDocumentAs,
@@ -138,6 +139,26 @@ export function useShortcuts() {
   // Offer to restore work left behind by a crash. Runs once, on mount.
   useEffect(() => {
     offerRecovery().catch(() => {});
+  }, []);
+
+  // Keep every font the document references registered as a CSS @font-face.
+  //
+  // Faces were previously registered only by the frame that used them, when it
+  // mounted. That left two holes: a font chosen from the toolbar was not
+  // registered until a re-render, and opening a .qalam file whose frames use
+  // fonts this session has never shown left them unregistered — in both cases
+  // CSS silently falls back to serif, so Nastaliq is lost with no error.
+  // Subscribing here covers the whole document, including after undo/redo/open.
+  useEffect(() => {
+    const sync = (pages: ReturnType<typeof useDoc.getState>["pages"]) => {
+      ensureAllDocumentFonts(pages.flatMap((p) => p.frames.map((f) => f.fontKey))).catch(
+        () => {}
+      );
+    };
+    sync(useDoc.getState().pages);
+    return useDoc.subscribe((s, prev) => {
+      if (s.pages !== prev.pages) sync(s.pages);
+    });
   }, []);
 
   // Confirm before the window closes over unsaved changes.
