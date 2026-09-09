@@ -69,7 +69,9 @@ export function layoutText(
   text: string,
   fontBytes: Uint8Array,
   fontSize: number,
-  frameWidth: number
+  frameWidth: number,
+  /** "justify" elongates letters with kashida; others only set the line origin. */
+  align: "right" | "center" | "left" | "justify" = "right"
 ): Promise<RenderLayout> {
   ensureTauri("Print-grade rendering");
   return invoke<RenderLayout>("layout_text", {
@@ -77,6 +79,7 @@ export function layoutText(
     fontBytes: Array.from(fontBytes),
     fontSize,
     frameWidth,
+    align,
   });
 }
 

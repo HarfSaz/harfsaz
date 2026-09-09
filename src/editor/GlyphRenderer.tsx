@@ -17,12 +17,15 @@ export function GlyphRenderer({
   width,
   height,
   fontKey,
+  align = "right",
 }: {
   text: string;
   fontSize: number;
   width: number;
   height: number;
   fontKey: string;
+  /** Paragraph alignment; "justify" enables kashida elongation in the shaper. */
+  align?: "right" | "center" | "left" | "justify";
 }) {
   const [layout, setLayout] = useState<RenderLayout | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -33,7 +36,7 @@ export function GlyphRenderer({
     (async () => {
       try {
         const font = await loadFontBytes(fontKey);
-        const result = await layoutText(text, font, fontSize, width);
+        const result = await layoutText(text, font, fontSize, width, align);
         if (alive) {
           setLayout(result);
           setError(null);
@@ -45,7 +48,7 @@ export function GlyphRenderer({
     return () => {
       alive = false;
     };
-  }, [text, fontSize, width, fontKey]);
+  }, [text, fontSize, width, fontKey, align]);
 
   if (!isTauri()) {
     return (

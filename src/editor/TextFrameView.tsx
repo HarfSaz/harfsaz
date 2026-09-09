@@ -186,6 +186,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           width={frame.width}
           height={frame.height}
           fontKey={frame.fontKey}
+          align={frame.align}
         />
       )}
 
