@@ -7,6 +7,7 @@ import { Toolbox } from "./components/Toolbox";
 import { Ruler } from "./components/Ruler";
 import { ViewBar } from "./components/ViewBar";
 import { PrintDialog } from "./components/PrintDialog";
+import { FindReplace } from "./components/FindReplace";
 import { UpgradeDialog } from "./components/UpgradeDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
 import { OcrDialog } from "./components/OcrDialog";
@@ -39,6 +40,7 @@ export function App() {
         <MenuBar />
         <Toolbar />
         {showObjectBar && <ObjectBar />}
+        <FindReplace />
 
         <div className="flex min-h-0 flex-1">
           <Toolbox />

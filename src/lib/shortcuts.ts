@@ -2,6 +2,7 @@
 import { useEffect } from "react";
 import { useDoc } from "./store";
 import { useUi } from "./ui";
+import { useSearch } from "./search";
 import {
   saveDocument,
   saveDocumentAs,
@@ -57,6 +58,18 @@ export function useShortcuts() {
       const key = e.key.toLowerCase();
 
       switch (key) {
+        case "f":
+          // ⌘F opens find & replace. Handled here (capture phase) so it wins
+          // over the webview's own find behaviour.
+          e.preventDefault();
+          useSearch.getState().setOpen(true);
+          break;
+        case "g":
+          // ⌘G / ⇧⌘G steps through matches, matching platform convention.
+          e.preventDefault();
+          if (e.shiftKey) useSearch.getState().prev();
+          else useSearch.getState().next();
+          break;
         case "s":
           e.preventDefault();
           if (e.shiftKey) saveDocumentAs();

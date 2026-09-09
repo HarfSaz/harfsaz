@@ -4,6 +4,7 @@ import { IconTip } from "./ui/tooltip";
 import { useUi } from "../lib/ui";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuSeparator } from "./ui/menu";
+import { useSearch } from "../lib/search";
 import { LANGUAGES, languagePatch, LangCode } from "../lib/languages";
 import {
   saveDocument,
@@ -106,6 +107,10 @@ export function MenuBar() {
           <MenuItem onSelect={exec("cut")} shortcut="⌘X">Cut</MenuItem>
           <MenuItem onSelect={exec("copy")} shortcut="⌘C">Copy</MenuItem>
           <MenuItem onSelect={exec("paste")} shortcut="⌘V">Paste</MenuItem>
+          <MenuSeparator />
+          <MenuItem onSelect={() => useSearch.getState().setOpen(true)} shortcut="⌘F">
+            Find &amp; replace…
+          </MenuItem>
         </Menu>
 
         <Menu label="View">
