@@ -160,13 +160,22 @@ fn print_file_windows(
     printer: Option<String>,
     copies: u32,
 ) -> Result<String, String> {
-    // Strategy: temporarily set the chosen printer as default (Windows print verb
-    // targets the default printer), then print the PDF `copies` times via the
-    // registered PDF handler's Print verb, then restore the previous default.
-    // This works without bundling a PDF engine and respects the user's choice.
+    // Fallback chain: many users' default PDF handler is Edge, which does NOT
+    // register a shell `print` verb — so `Start-Process -Verb Print` fails with
+    // "No application is associated...". We try, in order:
+    //   1. Shell `print` verb (works for Adobe/Foxit when set as default)
+    //   2. Foxit Reader CLI (silent-ish)
+    //   3. SumatraPDF CLI (truly silent — recommended)
+    //   4. Adobe Acrobat Reader CLI
+    //   5. Open the file with default verb so user can Ctrl+P
     let chosen = printer.unwrap_or_default();
-    let restore = if !chosen.trim().is_empty() {
-        // Capture current default, set the chosen one.
+    let chosen_trim = chosen.trim();
+    let n = copies.max(1);
+    let target_label = if chosen_trim.is_empty() { "default printer" } else { chosen_trim };
+
+    // Strategy 1: shell Print verb. This requires temporarily setting the chosen
+    // printer as default since the verb has no printer parameter.
+    let restore = if !chosen_trim.is_empty() {
         let prev = powershell(
             "(Get-CimInstance -Class Win32_Printer -Filter \"Default = $true\").Name",
         )
@@ -175,11 +184,11 @@ fn print_file_windows(
         .unwrap_or_default();
         let set = powershell(&format!(
             "(New-Object -ComObject WScript.Network).SetDefaultPrinter('{}')",
-            chosen.replace('\'', "''")
+            chosen_trim.replace('\'', "''")
         ))?;
         if !set.status.success() {
             return Err(format!(
-                "Could not select printer '{chosen}': {}",
+                "Could not select printer '{chosen_trim}': {}",
                 String::from_utf8_lossy(&set.stderr)
             ));
         }
@@ -189,18 +198,20 @@ fn print_file_windows(
     };
 
     let path_escaped = file_path.replace('\'', "''");
-    let n = copies.max(1);
-    let mut last_err = String::new();
+    let mut shell_verb_err = String::new();
+    let mut shell_verb_ok = true;
     for _ in 0..n {
         let out = powershell(&format!(
             "Start-Process -FilePath '{path_escaped}' -Verb Print -PassThru | Out-Null"
         ))?;
         if !out.status.success() {
-            last_err = String::from_utf8_lossy(&out.stderr).to_string();
+            shell_verb_err = String::from_utf8_lossy(&out.stderr).to_string();
+            shell_verb_ok = false;
+            break;
         }
     }
 
-    // Restore previous default printer.
+    // Restore previous default printer before deciding success/fallback.
     if !restore.is_empty() {
         let _ = powershell(&format!(
             "(New-Object -ComObject WScript.Network).SetDefaultPrinter('{}')",
@@ -208,8 +219,161 @@ fn print_file_windows(
         ));
     }
 
-    if !last_err.is_empty() {
-        return Err(format!("Print failed: {last_err}"));
+    if shell_verb_ok {
+        return Ok(format!("Sent {n} copy(ies) to {target_label}"));
     }
-    Ok(format!("Sent {n} copy(ies) to {}", if chosen.is_empty() { "default printer" } else { &chosen }))
+
+    // Strategy 2-4: try known CLI-capable PDF viewers in order.
+    let candidates = pdf_print_cli_candidates();
+    for cand in &candidates {
+        if !std::path::Path::new(&cand.exe).exists() {
+            continue;
+        }
+        let mut all_ok = true;
+        let mut err_buf = String::new();
+        for _ in 0..n {
+            let mut cmd = Command::new(&cand.exe);
+            for arg in cand.build_args(&file_path, chosen_trim) {
+                cmd.arg(arg);
+            }
+            match cmd.output() {
+                Ok(out) if out.status.success() => {}
+                Ok(out) => {
+                    all_ok = false;
+                    err_buf = String::from_utf8_lossy(&out.stderr).to_string();
+                    break;
+                }
+                Err(e) => {
+                    all_ok = false;
+                    err_buf = e.to_string();
+                    break;
+                }
+            }
+        }
+        if all_ok {
+            return Ok(format!(
+                "Sent {n} copy(ies) to {target_label} via {}",
+                cand.name
+            ));
+        }
+        // Otherwise try next candidate; remember last err for the failure path.
+        if !err_buf.is_empty() {
+            shell_verb_err = format!("{} failed: {err_buf}", cand.name);
+        }
+    }
+
+    // Strategy 5: open the PDF so the user can print manually.
+    let _ = powershell(&format!(
+        "Start-Process -FilePath '{path_escaped}' | Out-Null"
+    ));
+    Err(format!(
+        "No silent-print app found (your default PDF handler doesn't support the Print verb). \
+         Opened the document — press Ctrl+P in the viewer to print. \
+         Tip: install SumatraPDF or Foxit Reader for one-click silent printing. \
+         Last error: {}",
+        if shell_verb_err.is_empty() { "Print verb not available".to_string() } else { shell_verb_err }
+    ))
+}
+
+#[cfg(target_os = "windows")]
+struct PdfCli {
+    name: &'static str,
+    exe: String,
+    // (file_path, printer_name_or_empty) -> args
+    args_builder: fn(&str, &str) -> Vec<String>,
+}
+
+#[cfg(target_os = "windows")]
+impl PdfCli {
+    fn build_args(&self, file_path: &str, printer: &str) -> Vec<String> {
+        (self.args_builder)(file_path, printer)
+    }
+}
+
+#[cfg(target_os = "windows")]
+fn pdf_print_cli_candidates() -> Vec<PdfCli> {
+    let pf = std::env::var("ProgramFiles").unwrap_or_else(|_| r"C:\Program Files".to_string());
+    let pf86 = std::env::var("ProgramFiles(x86)")
+        .unwrap_or_else(|_| r"C:\Program Files (x86)".to_string());
+    let local = std::env::var("LOCALAPPDATA").unwrap_or_default();
+
+    let mut v = Vec::new();
+
+    // SumatraPDF — truly silent printing. Preferred.
+    for base in [&pf, &pf86, &local] {
+        if base.is_empty() {
+            continue;
+        }
+        for sub in ["SumatraPDF\\SumatraPDF.exe", "SumatraPDF.exe"] {
+            v.push(PdfCli {
+                name: "SumatraPDF",
+                exe: format!("{base}\\{sub}"),
+                args_builder: |file, printer| {
+                    let mut a = vec!["-silent".to_string()];
+                    if printer.is_empty() {
+                        a.push("-print-to-default".to_string());
+                    } else {
+                        a.push("-print-to".to_string());
+                        a.push(printer.to_string());
+                    }
+                    a.push(file.to_string());
+                    a
+                },
+            });
+        }
+    }
+
+    // Foxit PDF Reader
+    for base in [&pf86, &pf] {
+        v.push(PdfCli {
+            name: "Foxit Reader",
+            exe: format!("{base}\\Foxit Software\\Foxit PDF Reader\\FoxitPDFReader.exe"),
+            args_builder: |file, printer| {
+                if printer.is_empty() {
+                    vec!["/p".to_string(), file.to_string()]
+                } else {
+                    vec!["/t".to_string(), file.to_string(), printer.to_string()]
+                }
+            },
+        });
+        v.push(PdfCli {
+            name: "Foxit Reader",
+            exe: format!("{base}\\Foxit Software\\Foxit Reader\\FoxitReader.exe"),
+            args_builder: |file, printer| {
+                if printer.is_empty() {
+                    vec!["/p".to_string(), file.to_string()]
+                } else {
+                    vec!["/t".to_string(), file.to_string(), printer.to_string()]
+                }
+            },
+        });
+    }
+
+    // Adobe Acrobat Reader DC
+    for base in [&pf86, &pf] {
+        v.push(PdfCli {
+            name: "Acrobat Reader",
+            exe: format!("{base}\\Adobe\\Acrobat Reader DC\\Reader\\AcroRd32.exe"),
+            args_builder: |file, printer| {
+                if printer.is_empty() {
+                    vec!["/p".to_string(), "/h".to_string(), file.to_string()]
+                } else {
+                    vec!["/t".to_string(), file.to_string(), printer.to_string()]
+                }
+            },
+        });
+        v.push(PdfCli {
+            name: "Acrobat",
+            exe: format!("{base}\\Adobe\\Acrobat DC\\Acrobat\\Acrobat.exe"),
+            args_builder: |file, printer| {
+                if printer.is_empty() {
+                    vec!["/p".to_string(), "/h".to_string(), file.to_string()]
+                } else {
+                    vec!["/t".to_string(), file.to_string(), printer.to_string()]
+                }
+            },
+        });
+    }
+
+    v
 }

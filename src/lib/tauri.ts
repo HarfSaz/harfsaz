@@ -154,6 +154,34 @@ export function aiTransform(params: {
   return invoke<AiResponse>("ai_transform", params);
 }
 
+export interface OcrResult {
+  text: string;
+  model: string;
+  tokens: number;
+}
+
+/** How the transcription should treat the source layout. */
+export type OcrMode = "plain" | "layout";
+
+/**
+ * Transcribe an attached image/PDF of handwritten or printed text into editable
+ * Unicode via the active provider's vision model.
+ *
+ * `data` may be a bare base64 string or a whole `data:…;base64,…` URL.
+ */
+export function aiOcr(params: {
+  data: string;
+  mediaType: string;
+  lang: string;
+  mode: OcrMode;
+  diacritics: boolean;
+  instruction?: string;
+  model?: string;
+}): Promise<OcrResult> {
+  ensureTauri("OCR");
+  return invoke<OcrResult>("ai_ocr", params);
+}
+
 export function aiKeyPresent(): Promise<boolean> {
   // Don't throw on startup in the browser — just report "not present".
   if (!isTauri()) return Promise.resolve(false);
@@ -178,10 +206,17 @@ export function getAiSettings(): Promise<AiSettingsView> {
   return invoke<AiSettingsView>("get_ai_settings");
 }
 
-/** Save AI settings locally (provider, key, model). Empty key clears it. */
+/** Save AI settings locally (provider, key, model). A blank key keeps the
+ *  currently-stored one — use `clearAiKey` to remove it. */
 export function setAiSettings(provider: string, apiKey: string, model: string): Promise<void> {
   ensureTauri("AI settings");
   return invoke<void>("set_ai_settings", { provider, apiKey, model });
+}
+
+/** Forget the stored API key (keeps the provider/model choice). */
+export function clearAiKey(): Promise<void> {
+  ensureTauri("AI settings");
+  return invoke<void>("clear_ai_key");
 }
 
 // ---- Printing ----

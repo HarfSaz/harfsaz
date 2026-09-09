@@ -56,6 +56,7 @@ export function AiPanel() {
   const setUpgradeOpen = useUi((s) => s.setUpgradeOpen);
   const setSettingsOpen = useUi((s) => s.setSettingsOpen);
   const settingsOpen = useUi((s) => s.settingsOpen);
+  const setOcrOpen = useUi((s) => s.setOcrOpen);
   useEffect(() => {
     rollDay();
   }, [rollDay]);
@@ -241,11 +242,20 @@ export function AiPanel() {
         className="flex min-h-0 flex-1 flex-col gap-2 overflow-y-auto py-1"
       >
         {messages.length === 0 && (
-          <div className="flex flex-1 flex-col items-center justify-center px-4 text-center text-xs text-ink-soft">
-            <Sparkles size={22} className="mb-2 opacity-40" />
-            Ask anything — اردو, English, عربي.
-            <br />
-            e.g. “write a 2-line poem” or “ایک خبر کی سرخی لکھیں”.
+          <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-xs text-ink-soft">
+            <Sparkles size={22} className="opacity-40" />
+            <p>
+              Ask anything — اردو, English, عربي.
+              <br />
+              e.g. “write a 2-line poem” or “ایک خبر کی سرخی لکھیں”.
+            </p>
+            <p className="rounded-md border border-line bg-paper/60 px-2.5 py-1.5 leading-relaxed">
+              Have it on paper?{" "}
+              <button className="font-medium text-accent-deep underline" onClick={() => setOcrOpen(true)}>
+                Scan handwriting
+              </button>{" "}
+              turns a photo or PDF into editable Nastaliq text.
+            </p>
           </div>
         )}
 
@@ -300,36 +310,57 @@ export function AiPanel() {
 
       {error && <p className="ai-error shrink-0">{error}</p>}
 
-      {/* Frame tools row */}
-      <div className="flex shrink-0 flex-wrap gap-1.5">
-        <button
-          className="flex items-center gap-1 rounded-md border border-accent px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-paper-edge disabled:opacity-40"
-          disabled={proofBusy || !sel}
-          onClick={proofread}
-        >
-          <CheckCheck size={13} /> Proofread
-          {suggestionCount > 0 && <span className="text-accent-deep">({suggestionCount})</span>}
-        </button>
-        {canDiacritize && (
+      {/* ── Tools ──
+          Split into two tiers: document tools that do something structural, and
+          one-tap prompts that just seed the chat. Twelve identical pills in one
+          run made the important actions impossible to find. */}
+      <div className="flex shrink-0 flex-col gap-1.5">
+        <div className="flex flex-wrap gap-1.5">
           <button
-            className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-paper-edge disabled:opacity-40"
-            disabled={busy || !sel}
-            onClick={addDiacritics}
-            title="Add short-vowel marks"
+            className="flex items-center gap-1 rounded-md border border-accent bg-accent/5 px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-accent/10"
+            onClick={() => setOcrOpen(true)}
+            title="Attach a photo, scan or PDF of handwriting and turn it into editable text"
           >
-            تشکیل
+            <Sparkles size={13} /> Scan handwriting
           </button>
-        )}
-        {QUICK.map((q) => (
           <button
-            key={q.label}
-            disabled={busy || !sel}
-            onClick={() => quick(q)}
-            className="rounded-md border border-line px-2 py-1 text-[11px] text-ink hover:bg-paper-edge disabled:opacity-40"
+            className="flex items-center gap-1 rounded-md border border-accent px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-paper-edge disabled:opacity-40"
+            disabled={proofBusy || !sel}
+            onClick={proofread}
+            title={sel ? "Find spelling and grammar issues in this frame" : "Select a frame first"}
           >
-            {q.label}
+            <CheckCheck size={13} /> {proofBusy ? "Proofreading…" : "Proofread"}
+            {suggestionCount > 0 && <span>({suggestionCount})</span>}
           </button>
-        ))}
+          {canDiacritize && (
+            <button
+              className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-paper-edge disabled:opacity-40"
+              disabled={busy || !sel}
+              onClick={addDiacritics}
+              title="Add short-vowel marks (aerab / harakat)"
+            >
+              تشکیل
+            </button>
+          )}
+        </div>
+
+        <details className="group" open>
+          <summary className="cursor-pointer list-none text-[10px] font-semibold uppercase tracking-wider text-ink-soft marker:content-none hover:text-ink">
+            Quick actions on this frame
+          </summary>
+          <div className="mt-1.5 flex flex-wrap gap-1">
+            {QUICK.map((q) => (
+              <button
+                key={q.label}
+                disabled={busy || !sel}
+                onClick={() => quick(q)}
+                className="rounded-md border border-line px-2 py-1 text-[11px] text-ink hover:border-accent/60 hover:bg-paper-edge disabled:opacity-40"
+              >
+                {q.label}
+              </button>
+            ))}
+          </div>
+        </details>
       </div>
       {proofNote && <p className="shrink-0 text-[11px] text-ink-soft">{proofNote}</p>}
 

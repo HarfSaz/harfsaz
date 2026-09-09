@@ -77,6 +77,23 @@ async fn ai_proofread_inline(
     ai::proofread_inline(text, model).await
 }
 
+/// OCR an attached image/PDF (handwritten or printed) into editable text.
+///
+/// `data` is the file as base64 (a data URL is accepted too), `media_type` its
+/// MIME type. `mode` is "plain" or "layout"; `diacritics` adds aerab.
+#[tauri::command]
+async fn ai_ocr(
+    data: String,
+    media_type: String,
+    lang: String,
+    mode: String,
+    diacritics: bool,
+    instruction: Option<String>,
+    model: Option<String>,
+) -> Result<ai::OcrResult, String> {
+    ai::ocr(data, media_type, lang, mode, diacritics, instruction, model).await
+}
+
 /// List installed system printers (CUPS via lpstat).
 #[tauri::command]
 fn list_printers() -> Result<Vec<printing::PrinterInfo>, String> {
@@ -116,18 +133,29 @@ fn get_ai_settings() -> settings::AiSettingsView {
 }
 
 /// Save AI settings (provider, api key, model) to local config. Takes effect
-/// immediately (no restart). If `api_key` is empty, the previously-saved key is
-/// preserved (so the UI can omit it). Pass a single space " " to explicitly clear.
+/// immediately (no restart). If `api_key` is blank the previously-saved key is
+/// preserved, so the UI never has to read a key back to re-save the other
+/// fields. Use `clear_ai_key` to actually remove a stored key.
 #[tauri::command]
 fn set_ai_settings(provider: String, api_key: String, model: String) -> Result<(), String> {
-    let key = if api_key.is_empty() {
+    let key = if api_key.trim().is_empty() {
         settings::load().api_key // keep existing
-    } else if api_key == " " {
-        String::new() // explicit clear
     } else {
         api_key
     };
     settings::save(&settings::AiSettings { provider, api_key: key, model })
+}
+
+/// Forget the stored API key (keeps provider/model). The UI's "Remove key"
+/// action — previously unreachable, since saving a blank key preserves it.
+#[tauri::command]
+fn clear_ai_key() -> Result<(), String> {
+    let current = settings::load();
+    settings::save(&settings::AiSettings {
+        provider: current.provider,
+        api_key: String::new(),
+        model: current.model,
+    })
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -143,12 +171,14 @@ pub fn run() {
             ai_proofread_inline,
             ai_add_diacritics,
             ai_transform,
+            ai_ocr,
             list_printers,
             print_file,
             ai_key_present,
             ai_provider,
             get_ai_settings,
-            set_ai_settings
+            set_ai_settings,
+            clear_ai_key
         ])
         .run(tauri::generate_context!())
         .expect("error while running Qalam");

@@ -17,7 +17,7 @@ use std::process::Command;
 const ANTHROPIC_URL: &str = "https://api.anthropic.com/v1/messages";
 const ANTHROPIC_VERSION: &str = "2023-06-01";
 // Default to the latest capable Claude model; strong multilingual incl. Urdu.
-const DEFAULT_MODEL: &str = "claude-opus-4-8";
+const DEFAULT_MODEL: &str = "claude-opus-5";
 
 // ── Pluggable LLM providers ─────────────────────────────────────────────────
 //
@@ -539,16 +539,10 @@ pub struct ProofreadResult {
     pub tokens: u32,
 }
 
-/// Low-level call returning text + token usage, via the active provider.
-async fn call_claude(model: &str, system: &str, user: &str) -> Result<LlmResult, String> {
-    call_llm(system, user, Some(model)).await
-}
-
 /// Add diacritics / harakat (تشكيل) to RTL text. `lang` is the base language
 /// ("ar", "fa", "ur") so the prompt names the right tradition. Returns the same
 /// text fully voweled — used by non-native/learner readers and religious text.
 pub async fn add_diacritics(text: String, lang: String, model: Option<String>) -> Result<AiResponse, String> {
-    let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
     let (name, marks) = match lang.as_str() {
         "fa" => ("Persian", "zabar/zir/pesh and other Persian diacritics"),
         "ur" => ("Urdu", "aerab (zabar زبر, zer زیر, pesh پیش, jazm, tashdid) as used in Urdu textbooks and poetry"),
@@ -560,18 +554,19 @@ pub async fn add_diacritics(text: String, lang: String, model: Option<String>) -
          exact words and order; only add the vowel marks. Return ONLY the diacritized {name} text, \
          no explanations, no quotes."
     );
-    let res = call_claude(&model, &system, &text).await?;
+    // Pass the caller's override through (None = the active provider's default).
+    // Hardcoding a Claude model id here used to break DeepSeek/Mistral/OpenAI.
+    let res = call_llm(&system, &text, model.as_deref()).await?;
     if res.text.trim().is_empty() {
         return Err("The model returned an empty response.".into());
     }
+    let model = model.unwrap_or_else(|| resolve_provider().default_model);
     Ok(AiResponse { output: res.text.trim().to_string(), model, tokens: res.input_tokens + res.output_tokens })
 }
 
 /// Proofread Urdu text and return span-level corrections (for inline,
 /// non-destructive highlighting in the editor) instead of a rewritten blob.
 pub async fn proofread_inline(text: String, model: Option<String>) -> Result<ProofreadResult, String> {
-    let model = model.unwrap_or_else(|| DEFAULT_MODEL.to_string());
-
     let system = "You are a meticulous Urdu proofreader. Find spelling, grammar, and \
         punctuation errors in the given Urdu text. Respond with ONLY a JSON array (no prose, \
         no markdown fences) where each item is an object with exactly these keys: \
@@ -580,9 +575,11 @@ pub async fn proofread_inline(text: String, model: Option<String>) -> Result<Pro
         املا or گرامر). If there are no errors, return []. Do not include corrections whose \
         original does not appear verbatim in the text.";
 
-    let res = call_claude(&model, system, &text).await?;
+    // None = let the active provider pick its own default model.
+    let res = call_llm(system, &text, model.as_deref()).await?;
     let raw = res.text;
     let tokens = res.input_tokens + res.output_tokens;
+    let model = model.unwrap_or_else(|| resolve_provider().default_model);
 
     // Be tolerant: strip optional markdown fences and locate the JSON array.
     let cleaned = raw.trim().trim_start_matches("```json").trim_start_matches("```").trim_end_matches("```").trim();
@@ -604,4 +601,345 @@ pub async fn proofread_inline(text: String, model: Option<String>) -> Result<Pro
         .collect();
 
     Ok(ProofreadResult { corrections, model, tokens })
+}
+
+// ---- OCR: handwriting & scan → editable Urdu/Arabic text ------------------
+//
+// The user attaches a photo/scan/PDF of handwritten or printed RTL text and the
+// vision model transcribes it into editable Unicode the editor can typeset. This
+// is the "AI writes what you wrote by hand" path: phone photo of a manuscript →
+// Nastaliq DTP text in one step.
+
+/// Largest attachment we'll send, in decoded bytes. Anthropic caps a single
+/// base64 image at ~5 MB; we check before the round-trip so the user gets a
+/// clear message instead of an opaque 413 from the API.
+const MAX_ATTACHMENT_BYTES: usize = 5 * 1024 * 1024;
+
+/// What the OCR pass produced, plus the per-call token cost for the meter.
+#[derive(Serialize, Debug)]
+pub struct OcrResult {
+    /// The transcribed text, ready to drop into a frame.
+    pub text: String,
+    pub model: String,
+    pub tokens: u32,
+}
+
+/// Strip a `data:<media-type>;base64,` prefix if the frontend passed a whole
+/// data URL (FileReader.readAsDataURL produces one), and drop any whitespace —
+/// base64 with newlines is rejected by the API.
+fn clean_b64(raw: &str) -> String {
+    let body = match raw.find("base64,") {
+        Some(i) => &raw[i + "base64,".len()..],
+        None => raw,
+    };
+    body.chars().filter(|c| !c.is_whitespace()).collect()
+}
+
+/// Approximate decoded size of a base64 payload without actually decoding it.
+fn b64_decoded_len(b64: &str) -> usize {
+    let padding = b64.bytes().rev().take_while(|&c| c == b'=').count();
+    (b64.len() / 4) * 3 - padding.min(2)
+}
+
+/// Human-readable language name + script guidance for the OCR system prompt.
+fn ocr_language(lang: &str) -> (&'static str, &'static str) {
+    match lang {
+        "ar" | "ar-h" => ("Arabic", "Arabic script (Naskh or Ruqʿah handwriting)"),
+        "fa" | "fa-h" => ("Persian", "Persian Arabic script (Nastaliq or Naskh)"),
+        "ps" => ("Pashto", "Pashto Arabic script"),
+        "sd" => ("Sindhi", "Sindhi Arabic script"),
+        "he" => ("Hebrew", "Hebrew script"),
+        "en" => ("English", "Latin script"),
+        "auto" => ("the language shown in the image", "the script shown in the image"),
+        _ => ("Urdu", "Urdu Nastaliq script"),
+    }
+}
+
+/// Transcribe an attached image or PDF into editable text.
+///
+/// `data_b64` is the attachment as base64 (a full data URL is also accepted).
+/// `media_type` is its MIME type (image/png, image/jpeg, image/webp, image/gif,
+/// application/pdf). `mode` is "plain" (flowing text) or "layout" (keep the
+/// original line and paragraph breaks). `diacritics` asks the model to add
+/// aerab/harakat as it transcribes.
+pub async fn ocr(
+    data_b64: String,
+    media_type: String,
+    lang: String,
+    mode: String,
+    diacritics: bool,
+    instruction: Option<String>,
+    model: Option<String>,
+) -> Result<OcrResult, String> {
+    let b64 = clean_b64(&data_b64);
+    if b64.is_empty() {
+        return Err("The attachment was empty — pick an image or PDF and try again.".into());
+    }
+    if b64_decoded_len(&b64) > MAX_ATTACHMENT_BYTES {
+        return Err(
+            "That file is larger than 5 MB. Please crop it, lower the resolution, or split \
+             the pages, then try again."
+                .into(),
+        );
+    }
+
+    let media_type = media_type.trim().to_lowercase();
+    let is_pdf = media_type == "application/pdf";
+    if !is_pdf && !matches!(media_type.as_str(), "image/png" | "image/jpeg" | "image/webp" | "image/gif") {
+        return Err(format!(
+            "Unsupported attachment type '{media_type}'. Use a PNG, JPEG, WebP or GIF image, or a PDF."
+        ));
+    }
+
+    let (name, script) = ocr_language(&lang);
+    let layout_rule = if mode == "layout" {
+        "Preserve the original layout: keep every line break and paragraph break exactly where \
+         it appears in the image. Do not merge lines into flowing paragraphs."
+    } else {
+        "Join wrapped lines back into natural flowing paragraphs. Keep a real paragraph break \
+         only where the writer clearly started a new paragraph."
+    };
+    let diacritic_rule = if diacritics {
+        " Add correct diacritics (aerab/harakat) to the transcribed text, even where the \
+         handwriting omits them."
+    } else {
+        " Reproduce the diacritics exactly as written — add none that are not there, and drop \
+         none that are."
+    };
+
+    let system = format!(
+        "You are an expert palaeographer and transcriptionist for {name}, fluent in reading \
+         {script} — including fast, cursive, and irregular handwriting. You transcribe images \
+         of handwritten and printed documents into accurate, correctly-spelled Unicode text.\n\n\
+         Rules:\n\
+         - Transcribe every word you can read, in reading order (right-to-left for RTL scripts).\n\
+         - {layout_rule}\n\
+         - Use correct Unicode orthography for {name}: proper letter forms, hamza, and \
+           punctuation. Never output Latin transliteration for {name} text.{diacritic_rule}\n\
+         - If a word is genuinely illegible, write it as [؟] rather than inventing a word. Do \
+           not guess at content that is not visibly present.\n\
+         - Transcribe what is written even if it contains errors; do not silently correct the \
+           author's spelling or grammar.\n\
+         - Return ONLY the transcribed text. No preamble, no commentary, no markdown fences, \
+           no description of the image, and no surrounding quotes."
+    );
+
+    let mut user_text = format!(
+        "Transcribe all {name} text in this {}.",
+        if is_pdf { "document" } else { "image" }
+    );
+    if let Some(extra) = &instruction {
+        if !extra.trim().is_empty() {
+            user_text.push_str(&format!("\n\nAdditional instruction: {}", extra.trim()));
+        }
+    }
+
+    let cfg = resolve_provider();
+    let model_id = model.clone().unwrap_or_else(|| cfg.default_model.clone());
+
+    let res = match cfg.provider {
+        Provider::Anthropic => {
+            ocr_anthropic(&cfg, &model_id, &system, &user_text, &b64, &media_type, is_pdf).await?
+        }
+        Provider::ClaudeCli => {
+            return Err(
+                "The Claude CLI provider cannot read attachments. Switch to the Claude \
+                 (Anthropic) provider in Settings and add an API key to use OCR."
+                    .into(),
+            )
+        }
+        // DeepSeek / Mistral / OpenAI: the OpenAI chat-completions vision shape.
+        _ => {
+            if is_pdf {
+                return Err(
+                    "PDF OCR needs the Claude (Anthropic) provider. Switch provider in Settings, \
+                     or export the page as a PNG/JPEG image first."
+                        .into(),
+                );
+            }
+            ocr_openai(&cfg, &model_id, &system, &user_text, &b64, &media_type).await?
+        }
+    };
+
+    let text = res.text.trim().to_string();
+    if text.is_empty() {
+        return Err(
+            "No text was found in that attachment. Try a sharper, better-lit photo, or crop \
+             it closer to the writing."
+                .into(),
+        );
+    }
+
+    Ok(OcrResult { text, model: model_id, tokens: res.input_tokens + res.output_tokens })
+}
+
+/// Anthropic vision request: an image (or PDF document) block followed by the
+/// instruction text — the documented ordering for best extraction quality.
+async fn ocr_anthropic(
+    cfg: &ProviderConfig,
+    model: &str,
+    system: &str,
+    user_text: &str,
+    b64: &str,
+    media_type: &str,
+    is_pdf: bool,
+) -> Result<LlmResult, String> {
+    let api_key = cfg
+        .api_key
+        .clone()
+        .ok_or_else(|| "No API key set. Add one in Settings, or export QALAM_ANTHROPIC_API_KEY.".to_string())?;
+
+    let attachment = if is_pdf {
+        serde_json::json!({
+            "type": "document",
+            "source": { "type": "base64", "media_type": media_type, "data": b64 }
+        })
+    } else {
+        serde_json::json!({
+            "type": "image",
+            "source": { "type": "base64", "media_type": media_type, "data": b64 }
+        })
+    };
+
+    let body = serde_json::json!({
+        "model": model,
+        // Transcription can be long (a dense page of Nastaliq), and on models
+        // where thinking is on by default max_tokens covers thinking + output —
+        // so give it real headroom rather than the 2048 the text calls use.
+        "max_tokens": 8192,
+        "system": system,
+        "messages": [{
+            "role": "user",
+            "content": [attachment, { "type": "text", "text": user_text }]
+        }]
+    });
+
+    let resp = reqwest::Client::new()
+        .post(&cfg.base_url)
+        .header("x-api-key", api_key)
+        .header("anthropic-version", ANTHROPIC_VERSION)
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Request to Claude failed: {e}"))?;
+
+    let status = resp.status();
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Could not parse Claude response: {e}"))?;
+    if !status.is_success() {
+        let msg = json
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(|m| m.as_str())
+            .unwrap_or("unknown error");
+        return Err(format!("Claude API error ({status}): {msg}"));
+    }
+
+    // Safety classifiers can decline a request; that arrives as a 200 with
+    // stop_reason "refusal" and empty content, so check it before reading text.
+    if json.get("stop_reason").and_then(|s| s.as_str()) == Some("refusal") {
+        return Err("The model declined to transcribe that attachment.".into());
+    }
+
+    let text = json
+        .get("content")
+        .and_then(|c| c.as_array())
+        .map(|blocks| {
+            blocks
+                .iter()
+                .filter_map(|b| b.get("text").and_then(|t| t.as_str()))
+                .collect::<Vec<_>>()
+                .join("")
+        })
+        .unwrap_or_default();
+
+    let usage = json.get("usage");
+    let input_tokens = usage
+        .and_then(|u| u.get("input_tokens"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+    let output_tokens = usage
+        .and_then(|u| u.get("output_tokens"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or_else(|| estimate_tokens(&text) as u64) as u32;
+
+    Ok(LlmResult { text, input_tokens, output_tokens })
+}
+
+/// OpenAI-compatible vision request (OpenAI / Mistral / DeepSeek-vision): the
+/// image rides as a `image_url` part carrying an inline data URL.
+async fn ocr_openai(
+    cfg: &ProviderConfig,
+    model: &str,
+    system: &str,
+    user_text: &str,
+    b64: &str,
+    media_type: &str,
+) -> Result<LlmResult, String> {
+    let api_key = cfg
+        .api_key
+        .clone()
+        .ok_or_else(|| "No API key set for the selected provider. Add one in Settings.".to_string())?;
+
+    let body = serde_json::json!({
+        "model": model,
+        "max_tokens": 8192,
+        "messages": [
+            { "role": "system", "content": system },
+            { "role": "user", "content": [
+                { "type": "text", "text": user_text },
+                { "type": "image_url", "image_url": { "url": format!("data:{media_type};base64,{b64}") } }
+            ]}
+        ]
+    });
+
+    let resp = reqwest::Client::new()
+        .post(&cfg.base_url)
+        .header("authorization", format!("Bearer {api_key}"))
+        .header("content-type", "application/json")
+        .json(&body)
+        .send()
+        .await
+        .map_err(|e| format!("Request to the LLM provider failed: {e}"))?;
+
+    let status = resp.status();
+    let json: serde_json::Value = resp
+        .json()
+        .await
+        .map_err(|e| format!("Could not parse provider response: {e}"))?;
+    if !status.is_success() {
+        let msg = json
+            .get("error")
+            .and_then(|e| e.get("message"))
+            .and_then(|m| m.as_str())
+            .unwrap_or("unknown error");
+        return Err(format!(
+            "LLM provider error ({status}): {msg}. Note that the selected model must support image input."
+        ));
+    }
+
+    let text = json
+        .get("choices")
+        .and_then(|c| c.as_array())
+        .and_then(|a| a.first())
+        .and_then(|c| c.get("message"))
+        .and_then(|m| m.get("content"))
+        .and_then(|t| t.as_str())
+        .unwrap_or_default()
+        .to_string();
+
+    let usage = json.get("usage");
+    let input_tokens = usage
+        .and_then(|u| u.get("prompt_tokens"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or(0) as u32;
+    let output_tokens = usage
+        .and_then(|u| u.get("completion_tokens"))
+        .and_then(|v| v.as_u64())
+        .unwrap_or_else(|| estimate_tokens(&text) as u64) as u32;
+
+    Ok(LlmResult { text, input_tokens, output_tokens })
 }

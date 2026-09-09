@@ -21,6 +21,9 @@ interface UiState {
   /** Settings (AI provider/key) dialog open. */
   settingsOpen: boolean;
   setSettingsOpen: (v: boolean) => void;
+  /** OCR ("scan handwriting") dialog open. */
+  ocrOpen: boolean;
+  setOcrOpen: (v: boolean) => void;
   toggleAiPanel: () => void;
   setAiPanel: (open: boolean) => void;
   toggleObjectBar: () => void;
@@ -48,6 +51,8 @@ export const useUi = create<UiState>((set) => ({
   setUpgradeOpen: (v) => set({ upgradeOpen: v }),
   settingsOpen: false,
   setSettingsOpen: (v) => set({ settingsOpen: v }),
+  ocrOpen: false,
+  setOcrOpen: (v) => set({ ocrOpen: v }),
   toggleAiPanel: () => set((s) => ({ aiPanelOpen: !s.aiPanelOpen })),
   setAiPanel: (open) => set({ aiPanelOpen: open }),
   toggleObjectBar: () => set((s) => ({ objectBarOpen: !s.objectBarOpen })),

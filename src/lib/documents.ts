@@ -12,17 +12,30 @@ function baseName(path: string): string {
   return (parts[parts.length - 1] || "Untitled").replace(/\.qalam$/i, "");
 }
 
+/** Suggested filename for a Save As dialog, based on the current document. */
+function defaultPath(): string {
+  const { fileName } = useDoc.getState();
+  return `${fileName || "Untitled"}.qalam`;
+}
+
 /** Save to the current file path, or prompt for one if none (Save / ⌘S). */
 export async function saveDocument(): Promise<boolean> {
   if (!isTauri()) return false;
   const { filePath, toDocFile, markSaved } = useDoc.getState();
   let path = filePath;
   if (!path) {
-    const picked = await saveDialog({ filters: FILTER, defaultPath: "Untitled.qalam" });
+    const picked = await saveDialog({ filters: FILTER, defaultPath: defaultPath() });
     if (!picked) return false;
     path = picked;
   }
-  await writeTextFile(path, JSON.stringify(toDocFile(), null, 2));
+  try {
+    await writeTextFile(path, JSON.stringify(toDocFile(), null, 2));
+  } catch (e) {
+    // Without this, a failed write rejected into the void: the menu click looked
+    // like it worked and the document was silently left unsaved.
+    alert(`Could not save the document.\n\n${e}`);
+    return false;
+  }
   markSaved(path, baseName(path));
   return true;
 }
@@ -31,9 +44,14 @@ export async function saveDocument(): Promise<boolean> {
 export async function saveDocumentAs(): Promise<boolean> {
   if (!isTauri()) return false;
   const { toDocFile, markSaved } = useDoc.getState();
-  const picked = await saveDialog({ filters: FILTER, defaultPath: "Untitled.qalam" });
+  const picked = await saveDialog({ filters: FILTER, defaultPath: defaultPath() });
   if (!picked) return false;
-  await writeTextFile(picked, JSON.stringify(toDocFile(), null, 2));
+  try {
+    await writeTextFile(picked, JSON.stringify(toDocFile(), null, 2));
+  } catch (e) {
+    alert(`Could not save the document.\n\n${e}`);
+    return false;
+  }
   markSaved(picked, baseName(picked));
   return true;
 }
@@ -47,7 +65,14 @@ export async function openDocument(): Promise<boolean> {
   const picked = await openDialog({ filters: FILTER, multiple: false });
   if (!picked || Array.isArray(picked)) return false;
 
-  const raw = await readTextFile(picked);
+  let raw: string;
+  try {
+    raw = await readTextFile(picked);
+  } catch (e) {
+    alert(`Could not read that file.\n\n${e}`);
+    return false;
+  }
+
   let doc: DocFile;
   try {
     doc = JSON.parse(raw);
@@ -63,12 +88,34 @@ export async function openDocument(): Promise<boolean> {
   return true;
 }
 
+/**
+ * Start a blank document, confirming first if there are unsaved changes.
+ *
+ * The raw `newDocument` store action discards the current document with no
+ * prompt — the File menu and ⌘⇧N should always go through this instead.
+ */
+export function newDocumentGuarded(): boolean {
+  const { dirty, newDocument } = useDoc.getState();
+  if (dirty && !confirm("Discard unsaved changes and start a new document?")) return false;
+  newDocument();
+  return true;
+}
+
 /** Silently re-save if a file path already exists and there are changes
  *  (used by the auto-save timer). Never prompts. */
 export async function autoSave(): Promise<void> {
   if (!isTauri()) return;
-  const { filePath, dirty, toDocFile, markSaved } = useDoc.getState();
+  const { filePath, dirty, toDocFile } = useDoc.getState();
   if (!filePath || !dirty) return;
-  await writeTextFile(filePath, JSON.stringify(toDocFile()));
-  markSaved(filePath, baseName(filePath));
+
+  const written = JSON.stringify(toDocFile());
+  await writeTextFile(filePath, written);
+
+  // Only clear the dirty flag if nothing changed while the write was in flight.
+  // Marking unconditionally would drop keystrokes typed during the await — the
+  // document would look saved while those edits existed only in memory.
+  const after = useDoc.getState();
+  if (after.filePath === filePath && JSON.stringify(after.toDocFile()) === written) {
+    after.markSaved(filePath, baseName(filePath));
+  }
 }

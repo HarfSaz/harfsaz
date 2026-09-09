@@ -1,6 +1,7 @@
 import { useState } from "react";
-import { Cursor, TextTool, ImageTool, ShapeTool } from "./ui/icons";
+import { Cursor, TextTool, ImageTool, ShapeTool, Sparkles } from "./ui/icons";
 import { useDoc, ShapeKind } from "../lib/store";
+import { useUi } from "../lib/ui";
 import { IconTip } from "./ui/tooltip";
 import { pickImageFile, fitWithin } from "../lib/image";
 import { SHAPES, Shape } from "../editor/shapes";
@@ -12,6 +13,7 @@ export function Toolbox() {
   const addFrameAt = useDoc((s) => s.addFrameAt);
   const activePageId = useDoc((s) => s.activePageId);
   const pages = useDoc((s) => s.pages);
+  const setOcrOpen = useUi((s) => s.setOcrOpen);
 
   const [shapeOpen, setShapeOpen] = useState(false);
   const page = () => pages.find((p) => p.id === activePageId) ?? pages[0];
@@ -109,6 +111,16 @@ export function Toolbox() {
           </>
         )}
       </div>
+
+      <span className="my-1 h-px w-8 bg-line" />
+
+      {/* Scan handwriting — attachment → OCR → editable Nastaliq text */}
+      <IconTip label="Scan handwriting or a printed page into editable text">
+        <button onClick={() => setOcrOpen(true)} className={tileCls(false)}>
+          <Sparkles size={18} />
+          <span className="text-[10px] font-medium leading-tight">Scan</span>
+        </button>
+      </IconTip>
 
       {activeTool === "text" && (
         <p className="mt-1 px-1 text-center text-[9px] leading-tight text-ink-soft">

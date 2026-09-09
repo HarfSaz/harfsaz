@@ -48,6 +48,8 @@ qalam/
 2. **Proofreading** — Urdu spelling/grammar correction
 3. **Translate & transliterate** — English↔Urdu, Roman-Urdu → Nastaʿlīq script
 4. **Layout / design AI** — headline & caption generation, layout suggestions
+5. **Scan handwriting (OCR)** — attach a photo, scan or PDF of handwritten or
+   printed Urdu/Arabic/Persian and get editable Unicode back, ready to typeset
 
 All AI runs through **Claude (Anthropic API)**. The key stays in Rust — never
 shipped to the frontend.
@@ -88,7 +90,9 @@ Requires Rust (stable) and Node 18+. On first run Cargo will fetch the Rust deps
 - [ ] Bundle Noto Nastaliq Urdu / Gulzar / Mehr fonts offline
 - [ ] PDF export with embedded fonts
 - [ ] Roman-Urdu live transliteration as you type
-- [ ] Document save/load (`.qalam` format)
+- [x] Document save/load (`.qalam` format)
+- [x] Handwriting/scan OCR → editable Nastaʿlīq text (image or PDF attachment)
+- [ ] Batch OCR — a folder of scans into one document
 
 ## License
 

@@ -2,7 +2,13 @@
 import { useEffect } from "react";
 import { useDoc } from "./store";
 import { useUi } from "./ui";
-import { saveDocument, saveDocumentAs, openDocument, autoSave } from "./documents";
+import {
+  saveDocument,
+  saveDocumentAs,
+  openDocument,
+  autoSave,
+  newDocumentGuarded,
+} from "./documents";
 
 const AUTOSAVE_MS = 30_000;
 
@@ -58,8 +64,11 @@ export function useShortcuts() {
           openDocument();
           break;
         case "n":
+          // ⌘⇧N is New document in the File menu; without the shift branch it
+          // fell through and added a page instead.
           e.preventDefault();
-          doc.addPage();
+          if (e.shiftKey) newDocumentGuarded();
+          else doc.addPage();
           break;
         case "p":
           e.preventDefault();

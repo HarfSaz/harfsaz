@@ -9,6 +9,7 @@ import { ViewBar } from "./components/ViewBar";
 import { PrintDialog } from "./components/PrintDialog";
 import { UpgradeDialog } from "./components/UpgradeDialog";
 import { SettingsDialog } from "./components/SettingsDialog";
+import { OcrDialog } from "./components/OcrDialog";
 import { KeyboardHelp } from "./components/KeyboardHelp";
 import { SelectionMenu } from "./editor/SelectionMenu";
 import { PageCanvas } from "./editor/PageCanvas";
@@ -80,6 +81,7 @@ export function App() {
         <PrintDialog />
         <UpgradeDialog />
         <SettingsDialog />
+        <OcrDialog />
         <KeyboardHelp />
         <SelectionMenu />
       </div>

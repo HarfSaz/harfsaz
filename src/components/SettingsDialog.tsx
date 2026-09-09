@@ -4,7 +4,7 @@ import { XMark, CheckAll } from "./ui/icons";
 import { Select } from "./ui/select";
 import { useUi } from "../lib/ui";
 import { useUsage } from "../lib/usage";
-import { getAiSettings, setAiSettings, aiKeyPresent } from "../lib/tauri";
+import { getAiSettings, setAiSettings, aiKeyPresent, clearAiKey } from "../lib/tauri";
 
 const PROVIDERS = [
   { value: "", label: "Claude (default / env)" },
@@ -28,10 +28,12 @@ export function SettingsDialog() {
   const [hasKey, setHasKey] = useState(false);
   const [busy, setBusy] = useState(false);
   const [saved, setSaved] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     if (!open) return;
     setSaved(false);
+    setError(null);
     getAiSettings().then((s) => {
       setProvider(s.provider);
       setModel(s.model);
@@ -44,6 +46,7 @@ export function SettingsDialog() {
 
   async function save(asByok: boolean) {
     setBusy(true);
+    setError(null);
     try {
       // Empty key field → Rust preserves the existing saved key.
       await setAiSettings(provider, apiKey.trim(), model.trim());
@@ -52,6 +55,27 @@ export function SettingsDialog() {
       setApiKey("");
       if (asByok && present) setPlan("byok"); // uncap the paywall
       setSaved(true);
+    } catch (e) {
+      setError(String(e));
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  /** Forget the stored key. Saving a blank key *keeps* the old one, so removal
+   *  needs its own action — otherwise a key could never be taken back out. */
+  async function removeKey() {
+    if (!confirm("Remove the saved API key from this machine?")) return;
+    setBusy(true);
+    setError(null);
+    try {
+      await clearAiKey();
+      setHasKey(await aiKeyPresent());
+      setApiKey("");
+      setPlan("free"); // BYOK unlock came from the key — it's gone now
+      setSaved(true);
+    } catch (e) {
+      setError(String(e));
     } finally {
       setBusy(false);
     }
@@ -94,15 +118,27 @@ export function SettingsDialog() {
               <input
                 value={model}
                 onChange={(e) => setModel(e.target.value)}
-                placeholder="e.g. deepseek-chat, claude-opus-4-8"
-                className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none"
+                placeholder="Leave blank for the provider default — e.g. claude-opus-5"
+                className="w-full rounded-md border border-line px-3 py-2 text-sm outline-none focus-visible:border-accent focus-visible:ring-2 focus-visible:ring-accent/20"
               />
             </Field>
 
-            <p className="rounded-md bg-paper-edge px-3 py-2 text-xs text-ink-soft">
+            <p className="rounded-md bg-paper-edge px-3 py-2 text-xs leading-relaxed text-ink-soft">
               Your key is stored locally on this machine (not in the app source).
               Saving a key with “Use my key” removes the daily free limit (bring-your-own-key).
+              <br />
+              <span className="mt-1 inline-block">
+                <strong>Scan handwriting (OCR)</strong> needs a model that can read images.
+                Claude handles images and PDFs; other providers must be set to a
+                vision-capable model, and only Claude accepts PDFs.
+              </span>
             </p>
+
+            {error && (
+              <p className="rounded-md border border-danger/30 bg-danger/5 px-3 py-2 text-xs text-danger">
+                {error}
+              </p>
+            )}
 
             {saved && (
               <p className="flex items-center gap-1.5 text-xs font-medium text-accent-deep">
@@ -111,7 +147,16 @@ export function SettingsDialog() {
             )}
           </div>
 
-          <div className="flex justify-end gap-2 border-t border-line px-5 py-3">
+          <div className="flex items-center justify-end gap-2 border-t border-line px-5 py-3">
+            {hasKey && (
+              <button
+                onClick={removeKey}
+                disabled={busy}
+                className="mr-auto rounded-md px-3 py-1.5 text-sm text-danger hover:bg-danger/10 disabled:opacity-50"
+              >
+                Remove key
+              </button>
+            )}
             <Dialog.Close className="rounded-md border border-line px-4 py-1.5 text-sm hover:bg-paper-edge">
               Close
             </Dialog.Close>

@@ -134,6 +134,28 @@ const A4 = { width: 794, height: 1123 };
 let idCounter = 1;
 const newId = (prefix: string) => `${prefix}-${idCounter++}`;
 
+/**
+ * Advance the id counter past every id already present in `pages`.
+ *
+ * Ids are minted from a module-level counter that resets on reload, so opening a
+ * saved document (whose frames are already "frame-1", "frame-2", …) would
+ * otherwise mint colliding ids for the next frame the user adds — and
+ * updateFrame/removeFrame match by id, so two frames would move or delete
+ * together. Call this whenever pages arrive from outside the store.
+ */
+function syncIdCounter(pages: Page[]): void {
+  let max = 0;
+  const bump = (id: string) => {
+    const n = Number(/-(\d+)$/.exec(id)?.[1]);
+    if (Number.isFinite(n) && n > max) max = n;
+  };
+  for (const page of pages) {
+    bump(page.id);
+    for (const frame of page.frames) bump(frame.id);
+  }
+  idCounter = Math.max(idCounter, max + 1);
+}
+
 const MARGIN = 40;
 
 function makeFrame(opts?: { fillPage?: boolean }): TextFrame {
@@ -195,6 +217,31 @@ function makeFrameAt(
   return { ...f, ...extra };
 }
 
+/**
+ * Backfill defaults on a page loaded from disk.
+ *
+ * Documents saved by earlier builds predate fields like `kind`, `lang`/`dir` and
+ * the letter-spacing/line-height controls. Without this, those frames render
+ * with `undefined` styles (no font size, no colour) and the language menu has
+ * nothing to check. Unknown extra keys are preserved as-is.
+ */
+function migratePage(page: Page): Page {
+  const defaults = makeFrame();
+  return {
+    ...page,
+    width: page.width || A4.width,
+    height: page.height || A4.height,
+    frames: (page.frames ?? []).map((frame) => ({
+      ...defaults,
+      ...frame,
+      // Keep the frame's own id — `defaults` minted a throwaway one.
+      id: frame.id,
+      kind: frame.kind ?? "text",
+      dir: frame.dir ?? (frame.lang === "en" ? "ltr" : "rtl"),
+    })),
+  };
+}
+
 function makePage(): Page {
   // The default page is one big writing area filling the sheet (with margins).
   return { id: newId("page"), width: A4.width, height: A4.height, frames: [makeFrame({ fillPage: true })] };
@@ -224,6 +271,20 @@ function endsAtWordBoundary(text: string): boolean {
 /** Escape one line for safe insertion into the editor's block HTML. */
 function escapeHtmlLine(s: string): string {
   return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+
+/**
+ * Render plain text as the editor's block-per-line HTML.
+ *
+ * The rich editor needs one block element per line for per-paragraph alignment
+ * to work, so any code that injects text programmatically (AI output, OCR
+ * results) must build html this way rather than assigning a bare string.
+ */
+export function textToHtml(text: string): string {
+  return text
+    .split("\n")
+    .map((line) => `<div>${line ? escapeHtmlLine(line) : "<br>"}</div>`)
+    .join("");
 }
 
 /** Cheap structural equality for two page snapshots (skips redundant undo steps). */
@@ -365,10 +426,7 @@ export const useDoc = create<DocState>((set, get) => {
       const prevText = prev?.text ?? "";
       const nextText = mode === "append" && prevText ? `${prevText}\n${text}` : text;
       // Rebuild html as block-per-line so the editor renders it and alignment works.
-      const html = nextText
-        .split("\n")
-        .map((l) => `<div>${l ? escapeHtmlLine(l) : "<br>"}</div>`)
-        .join("");
+      const html = textToHtml(nextText);
       return {
         ...snapshot(s),
         revision: s.revision + 1, // force the (possibly focused) editor to reseed
@@ -426,30 +484,39 @@ export const useDoc = create<DocState>((set, get) => {
   canUndo: () => get().past.length > 0,
   canRedo: () => get().future.length > 0,
 
-  newDocument: () => {
-    const p = makePage();
-    set({
-      pages: [p],
-      activePageId: p.id,
-      selectedFrameId: p.frames[0].id,
-      filePath: null,
-      fileName: "Untitled",
-      dirty: false,
-      past: [],
-      future: [],
-    });
-  },
+  newDocument: () =>
+    set((s) => {
+      const p = makePage();
+      return {
+        pages: [p],
+        activePageId: p.id,
+        selectedFrameId: p.frames[0].id,
+        filePath: null,
+        fileName: "Untitled",
+        dirty: false,
+        past: [],
+        future: [],
+        // Force mounted editors to reseed — otherwise a focused editor keeps
+        // showing the previous document's text.
+        revision: s.revision + 1,
+      };
+    }),
 
   loadDocument: (doc, path, name) =>
-    set({
-      pages: doc.pages,
-      activePageId: doc.pages[0]?.id ?? "",
-      selectedFrameId: doc.pages[0]?.frames[0]?.id ?? null,
-      filePath: path,
-      fileName: name,
-      dirty: false,
-      past: [],
-      future: [],
+    set((s) => {
+      const pages = doc.pages.map(migratePage);
+      syncIdCounter(pages); // never mint an id that collides with a loaded one
+      return {
+        pages,
+        activePageId: pages[0]?.id ?? "",
+        selectedFrameId: pages[0]?.frames[0]?.id ?? null,
+        filePath: path,
+        fileName: name,
+        dirty: false,
+        past: [],
+        future: [],
+        revision: s.revision + 1, // reseed editors from the loaded html
+      };
     }),
 
   toDocFile: () => ({ version: 1, pages: get().pages }),
@@ -471,16 +538,25 @@ export const useDoc = create<DocState>((set, get) => {
           : { ...p, frames: p.frames.map((f) => (f.id === frameId ? { ...f, text: keepText } : f)) }
       );
 
-      // Find or create the next page.
-      let nextPage = pages[pageIdx + 1];
-      if (!nextPage) {
-        nextPage = makePage();
-        nextPage.frames[0].text = "";
-        pages.push(nextPage);
-      }
-      // Prepend the overflow into the next page's first frame.
-      const nf = nextPage.frames[0];
-      nextPage.frames = [{ ...nf, text: overflowText + nf.text }, ...nextPage.frames.slice(1)];
+      // Find or create the next page. Everything below rebuilds objects rather
+      // than assigning into them: `pages` here still holds the *same* page
+      // objects as current state for every page we didn't map over, so mutating
+      // one would edit live state in place — which leaves zustand subscribers
+      // stale and corrupts the undo snapshot we just took.
+      const existing = pages[pageIdx + 1];
+      const target = existing ?? (() => {
+        const blank = makePage();
+        return { ...blank, frames: [{ ...blank.frames[0], text: "" }] };
+      })();
+
+      const first = target.frames[0];
+      const nextPage: Page = {
+        ...target,
+        frames: [{ ...first, text: overflowText + first.text }, ...target.frames.slice(1)],
+      };
+
+      if (existing) pages[pageIdx + 1] = nextPage;
+      else pages.push(nextPage);
 
       return {
         ...snapshot(s),
