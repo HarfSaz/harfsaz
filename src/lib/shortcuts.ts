@@ -8,6 +8,9 @@ import {
   openDocument,
   autoSave,
   newDocumentGuarded,
+  installCloseGuard,
+  writeRecovery,
+  offerRecovery,
 } from "./documents";
 
 const AUTOSAVE_MS = 30_000;
@@ -107,10 +110,35 @@ export function useShortcuts() {
   }, []);
 
   // Periodic auto-save (only writes when a file exists and there are changes).
+  // autoSave records its own failures on the store (surfaced in the status bar),
+  // so the catch here is only for unexpected throws, not for write errors.
   useEffect(() => {
     const id = setInterval(() => {
       autoSave().catch(() => {});
+      // Mirror never-saved documents to the recovery file on the same tick;
+      // it no-ops once the document has a real path.
+      writeRecovery().catch(() => {});
     }, AUTOSAVE_MS);
     return () => clearInterval(id);
+  }, []);
+
+  // Offer to restore work left behind by a crash. Runs once, on mount.
+  useEffect(() => {
+    offerRecovery().catch(() => {});
+  }, []);
+
+  // Confirm before the window closes over unsaved changes.
+  useEffect(() => {
+    let unlisten: (() => void) | undefined;
+    let cancelled = false;
+    installCloseGuard().then((fn) => {
+      // The effect may have torn down while the listener was being installed.
+      if (cancelled) fn();
+      else unlisten = fn;
+    });
+    return () => {
+      cancelled = true;
+      unlisten?.();
+    };
   }, []);
 }

@@ -92,6 +92,12 @@ interface DocState {
   filePath: string | null; // absolute path of the open .qalam file
   fileName: string; // display name (e.g. "Untitled")
   dirty: boolean; // unsaved changes
+  /** Message from the last failed save, or null when the last save succeeded.
+   *  Surfaced in the status bar — a silent auto-save failure otherwise looks
+   *  exactly like a success and the user keeps typing into a doomed document. */
+  saveError: string | null;
+  /** Epoch ms of the last successful write (null = never saved this session). */
+  lastSavedAt: number | null;
   past: Page[][]; // undo stack (snapshots of pages)
   future: Page[][]; // redo stack
   /** Bumped on undo/redo/load so editors force-reseed their DOM even if focused. */
@@ -127,6 +133,8 @@ interface DocState {
   loadDocument: (doc: DocFile, path: string | null, name: string) => void;
   toDocFile: () => DocFile;
   markSaved: (path: string, name: string) => void;
+  /** Record that a save attempt failed (message shown in the status bar). */
+  setSaveError: (message: string | null) => void;
 }
 
 const A4 = { width: 794, height: 1123 };
@@ -315,6 +323,8 @@ export const useDoc = create<DocState>((set, get) => {
   filePath: null,
   fileName: "Untitled",
   dirty: false,
+  saveError: null,
+  lastSavedAt: null,
   past: [],
   future: [],
   revision: 0,
@@ -494,6 +504,7 @@ export const useDoc = create<DocState>((set, get) => {
         filePath: null,
         fileName: "Untitled",
         dirty: false,
+        saveError: null,
         past: [],
         future: [],
         // Force mounted editors to reseed — otherwise a focused editor keeps
@@ -513,6 +524,7 @@ export const useDoc = create<DocState>((set, get) => {
         filePath: path,
         fileName: name,
         dirty: false,
+        saveError: null,
         past: [],
         future: [],
         revision: s.revision + 1, // reseed editors from the loaded html
@@ -521,7 +533,10 @@ export const useDoc = create<DocState>((set, get) => {
 
   toDocFile: () => ({ version: 1, pages: get().pages }),
 
-  markSaved: (path, name) => set({ filePath: path, fileName: name, dirty: false }),
+  markSaved: (path, name) =>
+    set({ filePath: path, fileName: name, dirty: false, saveError: null, lastSavedAt: Date.now() }),
+
+  setSaveError: (message) => set({ saveError: message }),
 
   /**
    * Move the trailing `overflowText` off `frameId` into a (new if needed) next

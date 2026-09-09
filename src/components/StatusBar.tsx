@@ -9,6 +9,12 @@ export function StatusBar() {
   const activePageId = useDoc((s) => s.activePageId);
   const activeIndex = Math.max(0, pages.findIndex((p) => p.id === activePageId));
 
+  // Save state — so a failed (or pending) write is never invisible.
+  const dirty = useDoc((s) => s.dirty);
+  const saveError = useDoc((s) => s.saveError);
+  const fileName = useDoc((s) => s.fileName);
+  const filePath = useDoc((s) => s.filePath);
+
   const zoom = useUi((s) => s.zoom);
   const zoomIn = useUi((s) => s.zoomIn);
   const zoomOut = useUi((s) => s.zoomOut);
@@ -31,6 +37,12 @@ export function StatusBar() {
   return (
     <footer className="flex items-center justify-between border-t border-line bg-paper px-4 py-1 text-[11px] text-ink-soft">
       <div className="flex items-center gap-4">
+        <SaveStatus
+          dirty={dirty}
+          saveError={saveError}
+          fileName={fileName}
+          hasPath={!!filePath}
+        />
         <button
           onClick={() => setKeyboardHelpOpen(true)}
           title="Show keyboard layout reference"
@@ -87,5 +99,46 @@ export function StatusBar() {
         </div>
       </div>
     </footer>
+  );
+}
+
+/**
+ * Document save state.
+ *
+ * A failed auto-save used to be completely invisible — the write rejected into a
+ * swallowed promise and the user kept typing into a document that was not
+ * reaching disk. This makes all three states legible: saved, unsaved, failed.
+ */
+function SaveStatus({
+  dirty,
+  saveError,
+  fileName,
+  hasPath,
+}: {
+  dirty: boolean;
+  saveError: string | null;
+  fileName: string;
+  hasPath: boolean;
+}) {
+  if (saveError) {
+    return (
+      <span
+        title={`Could not save this document:\n\n${saveError}\n\nUse File ▸ Save As to write it somewhere else.`}
+        className="flex items-center gap-1 rounded px-1.5 py-0.5 font-medium text-danger"
+        style={{ background: "rgba(180, 45, 45, 0.10)" }}
+      >
+        ⚠ Not saved — click File ▸ Save As
+      </span>
+    );
+  }
+  return (
+    <span title={hasPath ? fileName : "This document has never been saved"}>
+      <span className="font-medium text-ink">{fileName}</span>
+      {dirty ? (
+        <span className="text-ink-soft"> · unsaved changes</span>
+      ) : (
+        <span className="text-ink-soft"> · saved</span>
+      )}
+    </span>
   );
 }

@@ -6,6 +6,8 @@
   "permissions": [
     "core:default",
     "core:path:default",
+    "core:window:allow-destroy",
+    "core:event:default",
     "dialog:default",
     "fs:default",
     {
@@ -18,11 +20,23 @@
     },
     {
       "identifier": "fs:allow-read-text-file",
-      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$APPLOCALDATA/**" }]
     },
     {
       "identifier": "fs:allow-write-text-file",
-      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }]
+      "allow": [{ "path": "$DOCUMENT/**" }, { "path": "$HOME/**" }, { "path": "$APPLOCALDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-exists",
+      "allow": [{ "path": "$APPLOCALDATA" }, { "path": "$APPLOCALDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-mkdir",
+      "allow": [{ "path": "$APPLOCALDATA" }, { "path": "$APPLOCALDATA/**" }]
+    },
+    {
+      "identifier": "fs:allow-remove",
+      "allow": [{ "path": "$APPLOCALDATA/**" }]
     }
   ]
 }
