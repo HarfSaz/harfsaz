@@ -6,6 +6,7 @@
 import { useMemo } from "react";
 import { create } from "zustand";
 import { LangCode, Dir, DEFAULT_LANG } from "./languages";
+import { sanitizeStoredHtml } from "../editor/sanitize";
 
 export type FrameKind = "text" | "image" | "shape";
 export type ShapeKind =
@@ -246,6 +247,10 @@ function migratePage(page: Page): Page {
       id: frame.id,
       kind: frame.kind ?? "text",
       dir: frame.dir ?? (frame.lang === "en" ? "ltr" : "rtl"),
+      // Documents saved before paste sanitization can carry the source's
+      // `<font face>` / `font-size` wrappers, which override the frame font for
+      // every character they wrap (so the font picker appears to do nothing).
+      html: sanitizeStoredHtml(frame.html),
     })),
   };
 }

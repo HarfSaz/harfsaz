@@ -1,5 +1,6 @@
 import { useEffect, useRef } from "react";
 import { transliterate } from "./phonetic";
+import { clipboardToLines, escapeHtml } from "./sanitize";
 import { LangCode, Dir } from "../lib/languages";
 
 /**
@@ -140,8 +141,33 @@ export function RichEditor({
       emit();
     }
 
+    // Paste adopts the FRAME's typography, like every DTP tool. Left to the
+    // browser, a paste from a website/Word/InPage lands as rich HTML wrapped in
+    // the source's `<font face=…>` and `font-size` — descendants that override
+    // the frame font for every character, so the font/size pickers look dead
+    // and the text renders in the system Urdu fallback. See sanitize.ts.
+    function onPaste(e: ClipboardEvent) {
+      if (!e.clipboardData) return;
+      const lines = clipboardToLines(e.clipboardData);
+      if (lines.length === 0) return;
+      e.preventDefault();
+      if (lines.length === 1) {
+        document.execCommand("insertText", false, lines[0]);
+      } else {
+        // One block per line keeps per-paragraph alignment working (the editor
+        // relies on block-per-line; a bare "\n" would not create blocks in WebKit).
+        const html = lines.map((l) => `<div>${l ? escapeHtml(l) : "<br>"}</div>`).join("");
+        document.execCommand("insertHTML", false, html);
+      }
+      emit();
+    }
+
     el.addEventListener("beforeinput", onBeforeInput);
-    return () => el.removeEventListener("beforeinput", onBeforeInput);
+    el.addEventListener("paste", onPaste);
+    return () => {
+      el.removeEventListener("beforeinput", onBeforeInput);
+      el.removeEventListener("paste", onPaste);
+    };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
