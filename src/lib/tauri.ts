@@ -244,3 +244,16 @@ export function printFile(params: {
   ensureTauri("Printing");
   return invoke<string>("print_file", params);
 }
+
+/** Text recovered from an InPage (.inp) document. */
+export interface InpageDoc {
+  paragraphs: string[];
+  /** True when the reliable pre-3.0 record format was decoded. */
+  legacy_format: boolean;
+}
+
+/** Extract the text of an InPage file (read on the Rust side by path). */
+export function importInpage(path: string): Promise<InpageDoc> {
+  ensureTauri("InPage import");
+  return invoke<InpageDoc>("import_inpage", { path });
+}

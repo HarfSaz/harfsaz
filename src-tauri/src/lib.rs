@@ -2,6 +2,7 @@
 //! bridge as invokable commands the React frontend can call.
 
 mod ai;
+mod inpage;
 mod printing;
 mod settings;
 mod shaping;
@@ -97,6 +98,16 @@ async fn ai_ocr(
     ai::ocr(data, media_type, lang, mode, diacritics, instruction, model).await
 }
 
+/// Import an InPage (.inp) document: returns its paragraphs as Unicode text.
+///
+/// The file is read here rather than via the fs plugin so the OLE container
+/// never has to cross the IPC bridge as a JSON byte array.
+#[tauri::command]
+fn import_inpage(path: String) -> Result<inpage::InpageDoc, String> {
+    let bytes = std::fs::read(&path).map_err(|e| format!("Could not read file: {e}"))?;
+    inpage::extract_text(&bytes)
+}
+
 /// List installed system printers (CUPS via lpstat).
 #[tauri::command]
 fn list_printers() -> Result<Vec<printing::PrinterInfo>, String> {
@@ -175,6 +186,7 @@ pub fn run() {
             ai_add_diacritics,
             ai_transform,
             ai_ocr,
+            import_inpage,
             list_printers,
             print_file,
             ai_key_present,

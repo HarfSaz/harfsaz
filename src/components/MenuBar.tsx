@@ -5,6 +5,7 @@ import { useUi } from "../lib/ui";
 import { Button } from "./ui/button";
 import { Menu, MenuItem, MenuSeparator } from "./ui/menu";
 import { useSearch } from "../lib/search";
+import { importPdfDocument, importInpageDocument } from "../lib/importers";
 import { LANGUAGES, languagePatch, LangCode } from "../lib/languages";
 import {
   saveDocument,
@@ -92,6 +93,8 @@ export function MenuBar() {
           <MenuItem onSelect={newDocumentGuarded} shortcut="⌘⇧N">New document</MenuItem>
           <MenuItem onSelect={addPage} shortcut="⌘N">New page</MenuItem>
           <MenuItem onSelect={() => openDocument()} shortcut="⌘O">Open…</MenuItem>
+          <MenuItem onSelect={() => importPdfDocument()}>Import PDF…</MenuItem>
+          <MenuItem onSelect={() => importInpageDocument()}>Import InPage (.inp)…</MenuItem>
           <MenuSeparator />
           <MenuItem onSelect={() => saveDocument()} shortcut="⌘S">Save</MenuItem>
           <MenuItem onSelect={() => saveDocumentAs()} shortcut="⇧⌘S">Save As…</MenuItem>
