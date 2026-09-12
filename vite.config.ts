@@ -3,6 +3,8 @@ import react from "@vitejs/plugin-react";
 
 // Tauri expects a fixed dev port and ignores the src-tauri dir for HMR.
 export default defineConfig({
+  // "/" for the desktop app; "/app/" when built into the website (pnpm editor:build in web/).
+  base: process.env.HARFSAZ_WEB_BASE || "/",
   plugins: [react()],
   clearScreen: false,
   server: {

@@ -7,9 +7,12 @@ import { writeFile } from "@tauri-apps/plugin-fs";
 import { tempDir, join } from "@tauri-apps/api/path";
 import { ensureAllDocumentFonts } from "./font";
 import { useDoc } from "./store";
+import { isTauri } from "./tauri";
+import { downloadBytes } from "./download";
 
 /** Generate a PDF from all .page elements and write it to a temp file.
- *  Returns the absolute file path. */
+ *  Returns the absolute file path — or, in the browser, downloads it and
+ *  returns the file name. */
 export async function renderPagesToPdfFile(opts: {
   pageWidthPx: number;
   pageHeightPx: number;
@@ -35,18 +38,29 @@ export async function renderPagesToPdfFile(opts: {
   // hides all of it in CSS. Restored in `finally` so an error mid-render can
   // never leave the editor with its chrome permanently hidden.
   document.body.classList.add("harfsaz-exporting");
+  let bytes: Uint8Array;
   try {
-    return await rasterizePages(pageEls, opts);
+    bytes = await rasterizePages(pageEls, opts);
   } finally {
     document.body.classList.remove("harfsaz-exporting");
   }
+
+  if (!isTauri()) {
+    const name = `${useDoc.getState().fileName || "Untitled"}.pdf`;
+    downloadBytes(name, bytes, "application/pdf");
+    return name;
+  }
+  const dir = await tempDir();
+  const path = await join(dir, `harfsaz-print-${Date.now()}.pdf`);
+  await writeFile(path, bytes);
+  return path;
 }
 
-/** Rasterize the given page elements into a PDF file; returns its path. */
+/** Rasterize the given page elements into PDF bytes. */
 async function rasterizePages(
   pageEls: HTMLElement[],
   opts: { pageWidthPx: number; pageHeightPx: number; orientation: "portrait" | "landscape" }
-): Promise<string> {
+): Promise<Uint8Array> {
 
   // jsPDF works in pt; 1px @96dpi = 0.75pt.
   const pxToPt = (px: number) => px * 0.75;
@@ -70,9 +84,5 @@ async function rasterizePages(
     doc.addImage(img, "JPEG", 0, 0, wPt, hPt);
   }
 
-  const bytes = doc.output("arraybuffer");
-  const dir = await tempDir();
-  const path = await join(dir, `harfsaz-print-${Date.now()}.pdf`);
-  await writeFile(path, new Uint8Array(bytes));
-  return path;
+  return new Uint8Array(doc.output("arraybuffer"));
 }

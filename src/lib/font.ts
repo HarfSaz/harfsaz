@@ -24,7 +24,7 @@ const F = (key: string, label: string, file: string, style: FontStyle): HarfsazF
   key,
   label,
   cssFamily: label,
-  url: `/fonts/${file}`,
+  url: `${import.meta.env.BASE_URL.replace(/\/$/, "")}/fonts/${file}`,
   style,
 });
 

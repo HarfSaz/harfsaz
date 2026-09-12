@@ -10,6 +10,7 @@ import { readFile } from "@tauri-apps/plugin-fs";
 import { useDoc, DocFile, Page, TextFrame } from "./store";
 import { isTauri, importInpage } from "./tauri";
 import { importPdfBytes } from "./importPdf";
+import { pickFile } from "./download";
 
 const A4 = { width: 794, height: 1123 };
 const MARGIN = 40;
@@ -120,7 +121,10 @@ function load(pages: Page[], name: string) {
 
 /** Import an InPage .inp file into a new document. */
 export async function importInpageDocument(): Promise<boolean> {
-  if (!isTauri()) return false;
+  if (!isTauri()) {
+    alert("InPage (.inp) import runs in the desktop app — its Rust decoder reads the InPage record format. Download it from harfsaz.com/download.");
+    return false;
+  }
   if (!confirmDiscard()) return false;
 
   const picked = await openDialog({
@@ -164,32 +168,40 @@ export async function importInpageDocument(): Promise<boolean> {
 export async function importPdfDocument(
   onProgress?: (done: number, total: number) => void
 ): Promise<boolean> {
-  if (!isTauri()) return false;
   if (!confirmDiscard()) return false;
 
-  const picked = await openDialog({
-    filters: [{ name: "PDF", extensions: ["pdf"] }],
-    multiple: false,
-  });
-  if (!picked || Array.isArray(picked)) return false;
-
+  let picked: string;
   let bytes: Uint8Array;
-  try {
-    bytes = await readFile(picked);
-  } catch (e) {
-    await message(`Could not read that file.\n\n${e}`, { title: "Import PDF", kind: "error" });
-    return false;
+  if (isTauri()) {
+    const chosen = await openDialog({
+      filters: [{ name: "PDF", extensions: ["pdf"] }],
+      multiple: false,
+    });
+    if (!chosen || Array.isArray(chosen)) return false;
+    picked = chosen;
+    try {
+      bytes = await readFile(picked);
+    } catch (e) {
+      await notify(`Could not read that file.\n\n${e}`, "Import PDF", "error");
+      return false;
+    }
+  } else {
+    // Browser: pdf.js runs client-side, so PDF import works in the web editor too.
+    const file = await pickFile("application/pdf,.pdf");
+    if (!file) return false;
+    picked = file.name;
+    bytes = new Uint8Array(await file.arrayBuffer());
   }
 
   let res;
   try {
     res = await importPdfBytes(bytes, { onProgress });
   } catch (e) {
-    await message(`Could not parse this PDF.\n\n${e}`, { title: "Import PDF", kind: "error" });
+    await notify(`Could not parse this PDF.\n\n${e}`, "Import PDF", "error");
     return false;
   }
   if (res.pages.length === 0) {
-    await message("The PDF has no pages.", { title: "Import PDF", kind: "warning" });
+    await notify("The PDF has no pages.", "Import PDF", "warning");
     return false;
   }
 
@@ -202,6 +214,12 @@ export async function importPdfDocument(
       `${res.scannedPages} pages had no text (scanned images). They were placed as images — use Scan handwriting (OCR) on those pages to make the text editable.`
     );
   parts.push("Images and vector graphics inside text pages are not imported yet; fonts are approximated by script.");
-  await message(parts.join("\n\n"), { title: "PDF import", kind: "info" });
+  await notify(parts.join("\n\n"), "PDF import", "info");
   return true;
+}
+
+/** Native message box on desktop; alert() in the browser. */
+async function notify(text: string, title: string, kind: "info" | "warning" | "error"): Promise<void> {
+  if (isTauri()) await message(text, { title, kind });
+  else alert(`${title}\n\n${text}`);
 }
