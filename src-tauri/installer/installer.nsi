@@ -161,9 +161,9 @@ VIAddVersionKey "ProductVersion" "${VERSION}"
 
 ; Installer pages, must be ordered as they appear
 ; 1. Welcome Page
-; Custom Qalam branding for the welcome page
-!define MUI_WELCOMEPAGE_TITLE "Welcome to Qalam Setup"
-!define MUI_WELCOMEPAGE_TEXT "Qalam is a modern, AI-native desktop publishing app for Urdu, Arabic, Persian, Pashto, Sindhi and Hebrew — with Nastaliq typesetting, 50+ fonts, and built-in AI writing, proofreading and translation.$\r$\n$\r$\nClick Next to continue."
+; Custom Harfsaz branding for the welcome page
+!define MUI_WELCOMEPAGE_TITLE "Welcome to Harfsaz Setup"
+!define MUI_WELCOMEPAGE_TEXT "Harfsaz is a modern, AI-native desktop publishing app for Urdu, Arabic, Persian, Pashto, Sindhi and Hebrew — with Nastaliq typesetting, 50+ fonts, and built-in AI writing, proofreading and translation.$\r$\n$\r$\nClick Next to continue."
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_WELCOME
 
@@ -405,8 +405,8 @@ Var AppStartMenuFolder
 ; because the installation page has useful info that can be used debug any issues with the installer.
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 ; Custom finish page text with Author credit
-!define MUI_FINISHPAGE_TITLE "Qalam Setup Complete"
-!define MUI_FINISHPAGE_TEXT "Qalam has been installed on your computer.$\r$\n$\r$\nAuthor: Afzaal$\r$\n$\r$\nClick Finish to close Setup."
+!define MUI_FINISHPAGE_TITLE "Harfsaz Setup Complete"
+!define MUI_FINISHPAGE_TEXT "Harfsaz has been installed on your computer.$\r$\n$\r$\nAuthor: Afzaal$\r$\n$\r$\nClick Finish to close Setup."
 ; Use show readme button in the finish page as a button create a desktop shortcut
 !define MUI_FINISHPAGE_SHOWREADME
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"

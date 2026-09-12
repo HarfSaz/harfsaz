@@ -133,7 +133,7 @@ export function SelectionMenu() {
   return (
     <div
       ref={cardRef}
-      className="fixed z-[60] w-[260px] rounded-xl border border-line bg-surface p-1.5 shadow-qalam"
+      className="fixed z-[60] w-[260px] rounded-xl border border-line bg-surface p-1.5 shadow-harfsaz"
       style={{ left, top }}
       dir="ltr"
       onMouseDown={(e) => e.stopPropagation()}

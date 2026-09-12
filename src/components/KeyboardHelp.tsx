@@ -30,7 +30,7 @@ export function KeyboardHelp() {
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 animate-in fade-in-0" />
         <Dialog.Content
           dir="ltr"
-          className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[640px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-qalam animate-in fade-in-0 zoom-in-95"
+          className="fixed left-1/2 top-1/2 z-50 max-h-[85vh] w-[640px] max-w-[92vw] -translate-x-1/2 -translate-y-1/2 overflow-hidden rounded-xl border border-line bg-surface shadow-harfsaz animate-in fade-in-0 zoom-in-95"
         >
           <div className="flex items-center justify-between border-b border-line px-5 py-3">
             <Dialog.Title className="text-base font-semibold">

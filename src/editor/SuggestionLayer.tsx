@@ -51,7 +51,7 @@ export function SuggestionLayer({
         {active && (
           <span
             dir="rtl"
-            className="absolute right-0 top-full z-20 mt-1 flex w-max max-w-[280px] flex-col gap-2 rounded-lg border border-line bg-surface p-3 text-right shadow-qalam"
+            className="absolute right-0 top-full z-20 mt-1 flex w-max max-w-[280px] flex-col gap-2 rounded-lg border border-line bg-surface p-3 text-right shadow-harfsaz"
             onClick={(e) => e.stopPropagation()}
           >
             <span className="flex items-center justify-between gap-3 font-ui text-[11px] text-ink-soft">

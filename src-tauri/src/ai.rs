@@ -1,4 +1,4 @@
-//! Claude (Anthropic API) bridge — the "AI-native" core of Qalam.
+//! Claude (Anthropic API) bridge — the "AI-native" core of Harfsaz.
 //!
 //! Four capabilities, all Urdu-aware, all routed through a single typed task enum:
 //!   1. Writing assistant   — compose / continue / rephrase / change tone
@@ -8,7 +8,7 @@
 //!
 //! Each task carries a tailored system prompt so the model behaves like a
 //! domain expert (an Urdu sub-editor), not a generic chat assistant. The API key
-//! is read from the QALAM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) env var and
+//! is read from the HARFSAZ_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY) env var and
 //! never shipped to the frontend.
 
 use serde::{Deserialize, Serialize};
@@ -21,7 +21,7 @@ const DEFAULT_MODEL: &str = "claude-opus-5";
 
 // ── Pluggable LLM providers ─────────────────────────────────────────────────
 //
-// The model backend is chosen at runtime by the QALAM_AI_PROVIDER env var:
+// The model backend is chosen at runtime by the HARFSAZ_AI_PROVIDER env var:
 //   "anthropic" (default) | "deepseek" | "mistral" | "openai" | "claude-cli"
 //
 // All HTTP providers except Anthropic speak the OpenAI chat-completions format,
@@ -62,28 +62,28 @@ fn resolve_provider() -> ProviderConfig {
     let name = if !saved.provider.trim().is_empty() {
         saved.provider.to_lowercase()
     } else {
-        std::env::var("QALAM_AI_PROVIDER").unwrap_or_default().to_lowercase()
+        std::env::var("HARFSAZ_AI_PROVIDER").unwrap_or_default().to_lowercase()
     };
 
-    let model_for = |default: &str| saved_model.clone().unwrap_or_else(|| env_or("QALAM_AI_MODEL", default));
+    let model_for = |default: &str| saved_model.clone().unwrap_or_else(|| env_or("HARFSAZ_AI_MODEL", default));
 
     match name.as_str() {
         "deepseek" => ProviderConfig {
             provider: Provider::DeepSeek,
-            base_url: env_or("QALAM_AI_BASE_URL", "https://api.deepseek.com/v1/chat/completions"),
-            api_key: saved_key.or_else(|| first_env(&["QALAM_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY", "QALAM_AI_API_KEY"])),
+            base_url: env_or("HARFSAZ_AI_BASE_URL", "https://api.deepseek.com/v1/chat/completions"),
+            api_key: saved_key.or_else(|| first_env(&["HARFSAZ_DEEPSEEK_API_KEY", "DEEPSEEK_API_KEY", "HARFSAZ_AI_API_KEY"])),
             default_model: model_for("deepseek-chat"),
         },
         "mistral" => ProviderConfig {
             provider: Provider::Mistral,
-            base_url: env_or("QALAM_AI_BASE_URL", "https://api.mistral.ai/v1/chat/completions"),
-            api_key: saved_key.or_else(|| first_env(&["QALAM_MISTRAL_API_KEY", "MISTRAL_API_KEY", "QALAM_AI_API_KEY"])),
+            base_url: env_or("HARFSAZ_AI_BASE_URL", "https://api.mistral.ai/v1/chat/completions"),
+            api_key: saved_key.or_else(|| first_env(&["HARFSAZ_MISTRAL_API_KEY", "MISTRAL_API_KEY", "HARFSAZ_AI_API_KEY"])),
             default_model: model_for("mistral-large-latest"),
         },
         "openai" => ProviderConfig {
             provider: Provider::OpenAi,
-            base_url: env_or("QALAM_AI_BASE_URL", "https://api.openai.com/v1/chat/completions"),
-            api_key: saved_key.or_else(|| first_env(&["QALAM_OPENAI_API_KEY", "OPENAI_API_KEY", "QALAM_AI_API_KEY"])),
+            base_url: env_or("HARFSAZ_AI_BASE_URL", "https://api.openai.com/v1/chat/completions"),
+            api_key: saved_key.or_else(|| first_env(&["HARFSAZ_OPENAI_API_KEY", "OPENAI_API_KEY", "HARFSAZ_AI_API_KEY"])),
             default_model: model_for("gpt-4o"),
         },
         "claude-cli" | "claude_cli" => ProviderConfig {
@@ -96,7 +96,7 @@ fn resolve_provider() -> ProviderConfig {
         _ => ProviderConfig {
             provider: Provider::Anthropic,
             base_url: ANTHROPIC_URL.to_string(),
-            api_key: saved_key.or_else(|| first_env(&["QALAM_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "QALAM_AI_API_KEY"])),
+            api_key: saved_key.or_else(|| first_env(&["HARFSAZ_ANTHROPIC_API_KEY", "ANTHROPIC_API_KEY", "HARFSAZ_AI_API_KEY"])),
             default_model: model_for(DEFAULT_MODEL),
         },
     }
@@ -253,7 +253,7 @@ async fn chat_openai(cfg: &ProviderConfig, model: &str, system: &str, msgs: &[se
 
 async fn call_anthropic(cfg: &ProviderConfig, model: &str, system: &str, user: &str) -> Result<LlmResult, String> {
     let api_key = cfg.api_key.clone().ok_or_else(|| {
-        "No API key set. Export QALAM_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY).".to_string()
+        "No API key set. Export HARFSAZ_ANTHROPIC_API_KEY (or ANTHROPIC_API_KEY).".to_string()
     })?;
     let body = serde_json::json!({
         "model": model,
@@ -289,7 +289,7 @@ async fn call_anthropic(cfg: &ProviderConfig, model: &str, system: &str, user: &
 
 async fn call_openai_compatible(cfg: &ProviderConfig, model: &str, system: &str, user: &str) -> Result<LlmResult, String> {
     let api_key = cfg.api_key.clone().ok_or_else(|| {
-        "No API key set for the selected provider. Set QALAM_AI_API_KEY (or the provider-specific key).".to_string()
+        "No API key set for the selected provider. Set HARFSAZ_AI_API_KEY (or the provider-specific key).".to_string()
     })?;
     let body = serde_json::json!({
         "model": model,
@@ -787,7 +787,7 @@ async fn ocr_anthropic(
     let api_key = cfg
         .api_key
         .clone()
-        .ok_or_else(|| "No API key set. Add one in Settings, or export QALAM_ANTHROPIC_API_KEY.".to_string())?;
+        .ok_or_else(|| "No API key set. Add one in Settings, or export HARFSAZ_ANTHROPIC_API_KEY.".to_string())?;
 
     let attachment = if is_pdf {
         serde_json::json!({

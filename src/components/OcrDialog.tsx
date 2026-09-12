@@ -204,7 +204,7 @@ export function OcrDialog() {
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 animate-in fade-in-0" />
         <Dialog.Content
           dir="ltr"
-          className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[900px] max-w-[95vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-line bg-surface shadow-qalam animate-in fade-in-0 zoom-in-95"
+          className="fixed left-1/2 top-1/2 z-50 flex max-h-[92vh] w-[900px] max-w-[95vw] -translate-x-1/2 -translate-y-1/2 flex-col rounded-xl border border-line bg-surface shadow-harfsaz animate-in fade-in-0 zoom-in-95"
         >
           {/* Header */}
           <div className="flex shrink-0 items-start justify-between border-b border-line px-5 py-3">

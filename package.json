@@ -1,9 +1,9 @@
 {
-  "name": "qalam",
+  "name": "harfsaz",
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Qalam (قلم) — an AI-native Urdu Nastaliq desktop publishing app",
+  "description": "Harfsaz (حرف ساز) — an AI-native Urdu Nastaliq desktop publishing app",
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",

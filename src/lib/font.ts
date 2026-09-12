@@ -11,7 +11,7 @@ export type FontStyle =
   | "Display"
   | "Hebrew";
 
-export interface QalamFont {
+export interface HarfsazFont {
   key: string;
   label: string;
   cssFamily: string;
@@ -20,7 +20,7 @@ export interface QalamFont {
 }
 
 // label === cssFamily for clarity; key is kebab-case; url under /public/fonts.
-const F = (key: string, label: string, file: string, style: FontStyle): QalamFont => ({
+const F = (key: string, label: string, file: string, style: FontStyle): HarfsazFont => ({
   key,
   label,
   cssFamily: label,
@@ -28,7 +28,7 @@ const F = (key: string, label: string, file: string, style: FontStyle): QalamFon
   style,
 });
 
-export const FONTS: QalamFont[] = [
+export const FONTS: HarfsazFont[] = [
   // ── Nastaliq (the Urdu calligraphic style) ──
   F("noto-nastaliq", "Noto Nastaliq Urdu", "NotoNastaliqUrdu-Regular.ttf", "Nastaliq"),
   F("gulzar", "Gulzar", "Gulzar-Regular.ttf", "Nastaliq"),
@@ -46,7 +46,7 @@ export const FONTS: QalamFont[] = [
   F("ruwudu", "Ruwudu", "Ruwudu-Regular.ttf", "Naskh"), // SIL, traditional Naskh
 
   // ── Kufi (geometric/headline) ──
-  F("qalam-kufi", "Qalam Kufi ✦", "QalamKufi-Regular.ttf", "Kufi"), // Qalam's own original face
+  F("harfsaz-kufi", "Harfsaz Kufi ✦", "HarfsazKufi-Regular.ttf", "Kufi"), // Harfsaz's own original face
   F("noto-kufi", "Noto Kufi Arabic", "NotoKufiArabic-Regular.ttf", "Kufi"),
   F("reem-kufi", "Reem Kufi", "ReemKufi-Regular.ttf", "Kufi"),
   F("el-messiri", "El Messiri", "ElMessiri-Regular.ttf", "Kufi"),
@@ -108,8 +108,12 @@ export const FONT_STYLE_ORDER: FontStyle[] = [
 
 export const DEFAULT_FONT_KEY = "noto-nastaliq";
 
-export function getFont(key: string): QalamFont {
-  return FONTS.find((f) => f.key === key) ?? FONTS[0];
+/** Font keys renamed after the app was renamed; documents may still carry the old key. */
+const LEGACY_KEYS: Record<string, string> = { "qalam-kufi": "harfsaz-kufi" };
+
+export function getFont(key: string): HarfsazFont {
+  const k = LEGACY_KEYS[key] ?? key;
+  return FONTS.find((f) => f.key === k) ?? FONTS[0];
 }
 
 const byteCache = new Map<string, Uint8Array>();

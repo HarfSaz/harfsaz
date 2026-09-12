@@ -1,13 +1,13 @@
 [package]
-name = "qalam"
+name = "harfsaz"
 version = "0.1.0"
-description = "Qalam — AI-native Urdu Nastaliq desktop publishing"
+description = "Harfsaz — AI-native Urdu Nastaliq desktop publishing"
 authors = ["Afzaal Ahmad"]
 edition = "2021"
 rust-version = "1.77"
 
 [lib]
-name = "qalam_lib"
+name = "harfsaz_lib"
 crate-type = ["staticlib", "cdylib", "rlib"]
 
 [build-dependencies]

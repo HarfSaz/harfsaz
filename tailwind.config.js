@@ -5,7 +5,7 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Qalam editorial "ink on paper" sepia palette, exposed as Tailwind tokens.
+        // Harfsaz editorial "ink on paper" sepia palette, exposed as Tailwind tokens.
         ink: { DEFAULT: "#1a1714", soft: "#534b42" },
         paper: { DEFAULT: "#fbf8f3", edge: "#efe9df" },
         surface: "#ffffff",
@@ -34,7 +34,7 @@ export default {
         sm: "6px",
       },
       boxShadow: {
-        qalam: "0 6px 28px rgba(40, 30, 18, 0.12)",
+        harfsaz: "0 6px 28px rgba(40, 30, 18, 0.12)",
       },
     },
   },

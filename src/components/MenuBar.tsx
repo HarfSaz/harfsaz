@@ -82,7 +82,7 @@ export function MenuBar() {
       <div className="flex items-center gap-0.5">
         {/* Brand (logo) + current file name */}
         <span className="mr-3 flex items-center gap-2.5 border-r border-line/70 pr-3">
-          <img src="/logo.png" alt="Qalam" className="h-[18px] w-auto" />
+          <img src="/logo.png" alt="Harfsaz" className="h-[18px] w-auto" />
           <span className="flex items-center gap-1 text-xs text-ink-soft">
             {fileName}
             {dirty && <span className="h-1.5 w-1.5 rounded-full bg-accent/70" title="Unsaved changes" />}

@@ -1,22 +1,24 @@
-// Document persistence: save/open .qalam files (JSON) via Tauri's dialog + fs.
-// A .qalam file is the serialized DocFile { version, pages }.
+// Document persistence: save/open .harfsaz files (JSON) via Tauri's dialog + fs.
+// A .harfsaz file is the serialized DocFile { version, pages }.
 import { save as saveDialog, open as openDialog, ask } from "@tauri-apps/plugin-dialog";
 import { writeTextFile, readTextFile, exists, mkdir, remove } from "@tauri-apps/plugin-fs";
 import { appLocalDataDir, join } from "@tauri-apps/api/path";
 import { useDoc, DocFile } from "./store";
 import { isTauri } from "./tauri";
 
-const FILTER = [{ name: "Qalam Document", extensions: ["qalam"] }];
+// Save always writes .harfsaz; Open also accepts .qalam files saved before the rename.
+const SAVE_FILTER = [{ name: "Harfsaz Document", extensions: ["harfsaz"] }];
+const OPEN_FILTER = [{ name: "Harfsaz Document", extensions: ["harfsaz", "qalam"] }];
 
 function baseName(path: string): string {
   const parts = path.split(/[/\\]/);
-  return (parts[parts.length - 1] || "Untitled").replace(/\.qalam$/i, "");
+  return (parts[parts.length - 1] || "Untitled").replace(/\.(harfsaz|qalam)$/i, "");
 }
 
 /** Suggested filename for a Save As dialog, based on the current document. */
 function defaultPath(): string {
   const { fileName } = useDoc.getState();
-  return `${fileName || "Untitled"}.qalam`;
+  return `${fileName || "Untitled"}.harfsaz`;
 }
 
 /** Save to the current file path, or prompt for one if none (Save / ⌘S). */
@@ -25,7 +27,7 @@ export async function saveDocument(): Promise<boolean> {
   const { filePath, toDocFile, markSaved } = useDoc.getState();
   let path = filePath;
   if (!path) {
-    const picked = await saveDialog({ filters: FILTER, defaultPath: defaultPath() });
+    const picked = await saveDialog({ filters: SAVE_FILTER, defaultPath: defaultPath() });
     if (!picked) return false;
     path = picked;
   }
@@ -47,7 +49,7 @@ export async function saveDocument(): Promise<boolean> {
 export async function saveDocumentAs(): Promise<boolean> {
   if (!isTauri()) return false;
   const { toDocFile, markSaved } = useDoc.getState();
-  const picked = await saveDialog({ filters: FILTER, defaultPath: defaultPath() });
+  const picked = await saveDialog({ filters: SAVE_FILTER, defaultPath: defaultPath() });
   if (!picked) return false;
   try {
     await writeTextFile(picked, JSON.stringify(toDocFile(), null, 2));
@@ -61,13 +63,13 @@ export async function saveDocumentAs(): Promise<boolean> {
   return true;
 }
 
-/** Prompt to open a .qalam file and load it (Open / ⌘O). */
+/** Prompt to open a .harfsaz file and load it (Open / ⌘O). */
 export async function openDocument(): Promise<boolean> {
   if (!isTauri()) return false;
   const { dirty, loadDocument } = useDoc.getState();
   if (dirty && !confirm("Discard unsaved changes and open another document?")) return false;
 
-  const picked = await openDialog({ filters: FILTER, multiple: false });
+  const picked = await openDialog({ filters: OPEN_FILTER, multiple: false });
   if (!picked || Array.isArray(picked)) return false;
 
   let raw: string;
@@ -82,11 +84,11 @@ export async function openDocument(): Promise<boolean> {
   try {
     doc = JSON.parse(raw);
   } catch {
-    alert("That file is not a valid Qalam document.");
+    alert("That file is not a valid Harfsaz document.");
     return false;
   }
   if (!doc || !Array.isArray(doc.pages) || doc.pages.length === 0) {
-    alert("That file is not a valid Qalam document.");
+    alert("That file is not a valid Harfsaz document.");
     return false;
   }
   loadDocument(doc, picked, baseName(picked));
@@ -202,13 +204,13 @@ export async function installCloseGuard(): Promise<() => void> {
 // ── Crash recovery for never-saved documents ────────────────────────────────
 //
 // `autoSave` can only re-save a document that already has a file path, so the
-// most common new-user session — open Qalam, type for an hour, never hit ⌘S —
+// most common new-user session — open Harfsaz, type for an hour, never hit ⌘S —
 // had no safety net at all. We additionally mirror the in-memory document to a
 // recovery file in the app data dir on the same timer. It is deleted on a real
 // save and on a clean close, so its presence at startup means the last session
 // ended without saving.
 
-const RECOVERY_FILE = "recovery.qalam.json";
+const RECOVERY_FILE = "recovery.harfsaz.json";
 
 /** Absolute path of the recovery file (creating the app data dir if needed). */
 async function recoveryPath(): Promise<string> {
@@ -276,7 +278,7 @@ export async function offerRecovery(): Promise<boolean> {
 
   const when = new Date(payload.savedAt || Date.now()).toLocaleString();
   const restore = await ask(
-    `Qalam closed unexpectedly with unsaved work.\n\n“${payload.fileName || "Untitled"}” — last auto-saved ${when}.\n\nRestore it?`,
+    `Harfsaz closed unexpectedly with unsaved work.\n\n“${payload.fileName || "Untitled"}” — last auto-saved ${when}.\n\nRestore it?`,
     { title: "Recover document", kind: "warning", okLabel: "Restore", cancelLabel: "Discard" }
   );
 

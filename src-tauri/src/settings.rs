@@ -1,7 +1,7 @@
 //! Local AI provider settings (persisted to a config file, NOT source code).
 //!
 //! The user sets their provider + API key in the in-app Settings dialog; we save
-//! it to `<config_dir>/qalam/ai_settings.json` so the key lives on the user's
+//! it to `<config_dir>/harfsaz/ai_settings.json` so the key lives on the user's
 //! machine only. `ai::resolve_provider()` reads this first, falling back to env
 //! vars. This also powers the paywall's "bring-your-own-key" unlock.
 
@@ -30,9 +30,9 @@ pub struct AiSettingsView {
 }
 
 fn config_path() -> Option<PathBuf> {
-    // ~/Library/Application Support/qalam on macOS, %APPDATA%\qalam on Windows, etc.
+    // ~/Library/Application Support/harfsaz on macOS, %APPDATA%\harfsaz on Windows, etc.
     dirs_next_config_dir().map(|mut p| {
-        p.push("qalam");
+        p.push("harfsaz");
         p.push("ai_settings.json");
         p
     })
@@ -69,9 +69,30 @@ fn dirs_next_config_dir() -> Option<PathBuf> {
     None
 }
 
+/// The app shipped as "Qalam" before the rename; carry an existing settings
+/// file (and the API key in it) over once so users are not asked to re-enter it.
+fn migrate_legacy(path: &std::path::Path) {
+    if path.exists() {
+        return;
+    }
+    let Some(dir) = path.parent().and_then(|p| p.parent()) else { return };
+    let old = dir.join("qalam").join("ai_settings.json");
+    if !old.is_file() {
+        return;
+    }
+    if let Some(parent) = path.parent() {
+        if std::fs::create_dir_all(parent).is_err() {
+            return;
+        }
+    }
+    // Copy, not move: the old app (if still installed) keeps working.
+    let _ = std::fs::copy(&old, path);
+}
+
 /// Load persisted settings (empty default if none / unreadable).
 pub fn load() -> AiSettings {
     let Some(path) = config_path() else { return AiSettings::default() };
+    migrate_legacy(&path);
     std::fs::read_to_string(&path)
         .ok()
         .and_then(|s| serde_json::from_str(&s).ok())

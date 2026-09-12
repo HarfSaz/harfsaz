@@ -321,7 +321,7 @@ export async function renderPagesToVectorPdf(): Promise<string> {
 
   const bytes = doc.output("arraybuffer");
   const dir = await tempDir();
-  const path = await join(dir, `qalam-vector-${Date.now()}.pdf`);
+  const path = await join(dir, `harfsaz-vector-${Date.now()}.pdf`);
   await writeFile(path, new Uint8Array(bytes));
   return path;
 }

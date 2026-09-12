@@ -11,7 +11,7 @@
   <true/>
   <key>com.apple.security.cs.allow-unsigned-executable-memory</key>
   <true/>
-  <!-- Allow reading user-selected files (open .qalam docs, save PDFs). -->
+  <!-- Allow reading user-selected files (open .harfsaz docs, save PDFs). -->
   <key>com.apple.security.files.user-selected.read-write</key>
   <true/>
 </dict>

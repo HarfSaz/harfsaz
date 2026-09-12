@@ -31,14 +31,14 @@ export async function renderPagesToPdfFile(opts: {
   // Editing chrome lives INSIDE .page (selection outline, resize grips, the move
   // grip, the ✕ delete button, the dashed margin guide), so html2canvas would
   // rasterize whatever happened to be selected straight into the PDF. Flag the
-  // document as exporting for the duration of the capture; `.qalam-exporting`
+  // document as exporting for the duration of the capture; `.harfsaz-exporting`
   // hides all of it in CSS. Restored in `finally` so an error mid-render can
   // never leave the editor with its chrome permanently hidden.
-  document.body.classList.add("qalam-exporting");
+  document.body.classList.add("harfsaz-exporting");
   try {
     return await rasterizePages(pageEls, opts);
   } finally {
-    document.body.classList.remove("qalam-exporting");
+    document.body.classList.remove("harfsaz-exporting");
   }
 }
 
@@ -72,7 +72,7 @@ async function rasterizePages(
 
   const bytes = doc.output("arraybuffer");
   const dir = await tempDir();
-  const path = await join(dir, `qalam-print-${Date.now()}.pdf`);
+  const path = await join(dir, `harfsaz-print-${Date.now()}.pdf`);
   await writeFile(path, new Uint8Array(bytes));
   return path;
 }

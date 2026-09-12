@@ -51,12 +51,12 @@ export function UpgradeDialog() {
         <Dialog.Overlay className="fixed inset-0 z-50 bg-black/30 animate-in fade-in-0" />
         <Dialog.Content
           dir="ltr"
-          className="fixed left-1/2 top-1/2 z-50 w-[640px] max-w-[94vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-surface shadow-qalam animate-in fade-in-0 zoom-in-95"
+          className="fixed left-1/2 top-1/2 z-50 w-[640px] max-w-[94vw] -translate-x-1/2 -translate-y-1/2 rounded-2xl border border-line bg-surface shadow-harfsaz animate-in fade-in-0 zoom-in-95"
         >
           <div className="flex items-start justify-between border-b border-line px-6 py-4">
             <div>
               <Dialog.Title className="flex items-center gap-2 text-lg font-semibold">
-                <Sparkles size={18} /> Upgrade Qalam AI
+                <Sparkles size={18} /> Upgrade Harfsaz AI
               </Dialog.Title>
               <p className="mt-1 text-sm text-ink-soft">
                 {remaining <= 0

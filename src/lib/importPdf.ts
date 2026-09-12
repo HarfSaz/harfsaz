@@ -1,6 +1,6 @@
-// PDF import: turn a PDF's text layer into Qalam pages of positioned text frames.
+// PDF import: turn a PDF's text layer into Harfsaz pages of positioned text frames.
 //
-// Each PDF page becomes a Qalam page of the same size, and each paragraph-like
+// Each PDF page becomes a Harfsaz page of the same size, and each paragraph-like
 // block of text becomes a text frame at its original position, size and
 // (approximate) font size — so a book keeps its page structure without needing
 // page-to-page text flow. Pages with no text layer (scans) are placed as a
@@ -22,7 +22,7 @@ import type { Page, TextFrame } from "./store";
 
 pdfjs.GlobalWorkerOptions.workerSrc = workerUrl;
 
-/** PDF points → CSS px at 96 dpi (Qalam's page unit). */
+/** PDF points → CSS px at 96 dpi (Harfsaz's page unit). */
 const PT_TO_PX = 96 / 72;
 
 export interface PdfImportResult {
@@ -223,7 +223,7 @@ function imageFrame(src: string, w: number, h: number): TextFrame {
   };
 }
 
-/** Import a PDF's bytes into Qalam pages. */
+/** Import a PDF's bytes into Harfsaz pages. */
 export async function importPdfBytes(
   data: Uint8Array,
   opts: PdfImportOptions = {}
@@ -248,7 +248,7 @@ export async function importPdfBytes(
       // Font size = vertical scale of the text matrix (handles rotation loosely).
       const size = Math.hypot(c, d) * PT_TO_PX || Math.hypot(a, b) * PT_TO_PX;
       const x = e * PT_TO_PX;
-      const y = pageH - f * PT_TO_PX; // PDF is y-up; Qalam is y-down
+      const y = pageH - f * PT_TO_PX; // PDF is y-up; Harfsaz is y-down
       items.push({
         str: normalizeArabic(raw.str),
         x,

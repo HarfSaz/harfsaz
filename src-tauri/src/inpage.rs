@@ -22,7 +22,7 @@
 //!
 //! Formatting, frames, page geometry and images are NOT recovered — the format
 //! for those is unknown. Output is plain paragraphs, which the frontend then
-//! paginates into a Qalam document.
+//! paginates into a Harfsaz document.
 
 use serde::Serialize;
 
@@ -288,10 +288,10 @@ mod tests {
     use super::*;
 
     /// The reference sample (story.inp + its verified story.txt) is not ours to
-    /// redistribute, so tests read it from `QALAM_INP_FIXTURE_DIR` and skip
+    /// redistribute, so tests read it from `HARFSAZ_INP_FIXTURE_DIR` and skip
     /// when the variable is unset.
     fn fixture() -> Option<(Vec<u8>, String)> {
-        let dir = std::env::var("QALAM_INP_FIXTURE_DIR").ok()?;
+        let dir = std::env::var("HARFSAZ_INP_FIXTURE_DIR").ok()?;
         let inp = std::fs::read(format!("{dir}/story.inp")).ok()?;
         let txt = std::fs::read(format!("{dir}/story.txt")).ok()?;
         // story.txt is UTF-16LE with a BOM and CRLF line ends.
@@ -303,7 +303,7 @@ mod tests {
     #[test]
     fn matches_reference_output_exactly() {
         let Some((inp, expected)) = fixture() else {
-            eprintln!("skipped: QALAM_INP_FIXTURE_DIR not set");
+            eprintln!("skipped: HARFSAZ_INP_FIXTURE_DIR not set");
             return;
         };
         let doc = extract_text(&inp).expect("extracts");

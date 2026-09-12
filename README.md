@@ -1,18 +1,18 @@
-# Qalam — قلم
+# Harfsaz — حرف ساز
 
 **An AI-native Urdu Nastaʿlīq desktop publishing app.**
 
-Qalam is to Urdu publishing what InPage was — but rebuilt for 2026: a modern,
+Harfsaz is to Urdu publishing what InPage was — but rebuilt for 2026: a modern,
 lightweight desktop app where AI is in the writing loop from day one, on top of
 a real HarfBuzz Nastaʿlīq typesetting core.
 
-> قلم — *"the pen"* — the timeless symbol of writing and calligraphy.
+> حرف ساز — *harf-sāz*, "the letter-maker" — a typesetter, one who shapes letters into a page.
 
 ---
 
-## Why Qalam
+## Why Harfsaz
 
-| | InPage (incumbent) | Qalam |
+| | InPage (incumbent) | Harfsaz |
 |---|---|---|
 | Era | 1994 engine, closed source | Modern, AI-native |
 | Rendering | Proprietary Nastaʿlīq engine | HarfBuzz / rustybuzz (open) |
@@ -27,7 +27,7 @@ Urdu and Gulzar is available natively.
 ## Architecture
 
 ```
-qalam/
+harfsaz/
 ├─ src/                     React + TypeScript frontend
 │  ├─ App.tsx               app shell (toolbar · canvas · AI panel)
 │  ├─ editor/               DTP page + text-frame views
@@ -70,7 +70,7 @@ pnpm install
 
 # 2. set your Claude API key (never committed)
 cp .env.example .env        # then edit, or:
-export QALAM_ANTHROPIC_API_KEY=sk-ant-...
+export HARFSAZ_ANTHROPIC_API_KEY=sk-ant-...
 
 # 3. run the desktop app (Vite + Tauri)
 pnpm app:dev
@@ -90,7 +90,7 @@ Requires Rust (stable) and Node 18+. On first run Cargo will fetch the Rust deps
 - [ ] Bundle Noto Nastaliq Urdu / Gulzar / Mehr fonts offline
 - [ ] PDF export with embedded fonts
 - [ ] Roman-Urdu live transliteration as you type
-- [x] Document save/load (`.qalam` format)
+- [x] Document save/load (`.harfsaz` format)
 - [x] Handwriting/scan OCR → editable Nastaʿlīq text (image or PDF attachment)
 - [ ] Batch OCR — a folder of scans into one document
 

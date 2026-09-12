@@ -86,7 +86,7 @@ export function Toolbox() {
           <>
             {/* click-away backdrop */}
             <div className="fixed inset-0 z-40" onClick={() => setShapeOpen(false)} />
-            <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-xl border border-line bg-surface p-2 shadow-qalam">
+            <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-xl border border-line bg-surface p-2 shadow-harfsaz">
               <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
                 Insert shape
               </p>

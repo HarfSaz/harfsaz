@@ -145,7 +145,7 @@ export function useShortcuts() {
   //
   // Faces were previously registered only by the frame that used them, when it
   // mounted. That left two holes: a font chosen from the toolbar was not
-  // registered until a re-render, and opening a .qalam file whose frames use
+  // registered until a re-render, and opening a .harfsaz file whose frames use
   // fonts this session has never shown left them unregistered — in both cases
   // CSS silently falls back to serif, so Nastaliq is lost with no error.
   // Subscribing here covers the whole document, including after undo/redo/open.

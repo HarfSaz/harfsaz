@@ -1,4 +1,4 @@
-//! Qalam — Tauri application entry. Wires the Nastaliq shaper and the Claude AI
+//! Harfsaz — Tauri application entry. Wires the Nastaliq shaper and the Claude AI
 //! bridge as invokable commands the React frontend can call.
 
 mod ai;
@@ -196,5 +196,5 @@ pub fn run() {
             clear_ai_key
         ])
         .run(tauri::generate_context!())
-        .expect("error while running Qalam");
+        .expect("error while running Harfsaz");
 }

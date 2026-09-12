@@ -78,8 +78,8 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tagName: ${{ github.ref_name }}
-          releaseName: "Qalam ${{ github.ref_name }}"
-          releaseBody: "Qalam — AI-native Urdu/RTL desktop publishing. See assets below."
+          releaseName: "Harfsaz ${{ github.ref_name }}"
+          releaseBody: "Harfsaz — AI-native Urdu/RTL desktop publishing. See assets below."
           releaseDraft: true
           prerelease: false
           args: ${{ matrix.args }}

@@ -255,7 +255,7 @@ fn apply_kashida(line: &str, sites: &[KashidaSite], per_site: &[usize]) -> Strin
 ///   Noto Naskh Arabic   +6.7px      Amiri   +5.9px
 ///   Gulzar (Nastaliq)  +22.3px      Noto Nastaliq Urdu   +0.0px
 ///
-/// Noto Nastaliq Urdu — Qalam's DEFAULT font — ignores tatweel entirely: its
+/// Noto Nastaliq Urdu — Harfsaz's DEFAULT font — ignores tatweel entirely: its
 /// isolated tatweel has zero advance and the face substitutes the same
 /// contextual forms regardless. So we grow the elongation stepwise and measure
 /// the real shaped width each round, stopping when we reach the target or when
@@ -670,7 +670,7 @@ mod tests {
 
     #[test]
     fn justification_degrades_gracefully_when_the_font_ignores_tatweel() {
-        // Noto Nastaliq Urdu — Qalam's DEFAULT — gives tatweel zero advance.
+        // Noto Nastaliq Urdu — Harfsaz's DEFAULT — gives tatweel zero advance.
         // The correct behaviour is to leave the line ALONE rather than stuff it
         // with invisible characters that never reach the measure.
         let Some(bytes) = test_face("NotoNastaliqUrdu-Regular.ttf") else { return };

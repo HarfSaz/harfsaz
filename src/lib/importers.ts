@@ -1,6 +1,6 @@
-// File ▸ Import: bring PDF and InPage documents into Qalam.
+// File ▸ Import: bring PDF and InPage documents into Harfsaz.
 //
-// Both importers produce a fresh Qalam document (they never merge into the
+// Both importers produce a fresh Harfsaz document (they never merge into the
 // open one), guard unsaved changes like Open does, and report what they could
 // and could not recover — import is lossy by nature and the user should know
 // which kind of lossy.
@@ -59,7 +59,7 @@ function pageFrame(text: string, lang: TextFrame["lang"], fontKey: string, fontS
 /**
  * Split paragraphs into A4 pages by a character budget.
  *
- * Qalam has no page-to-page text flow yet, so a long text must be paginated
+ * Harfsaz has no page-to-page text flow yet, so a long text must be paginated
  * at import time. The budget is derived from the default frame geometry at the
  * given font size (≈ lines × chars-per-line for Nastaliq metrics); it is an
  * approximation — pages may run slightly short or long until real flow lands.

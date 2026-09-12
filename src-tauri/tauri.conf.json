@@ -1,8 +1,8 @@
 {
   "$schema": "https://schema.tauri.app/config/2",
-  "productName": "Qalam",
+  "productName": "Harfsaz",
   "version": "0.1.0",
-  "identifier": "com.afzaal.qalam",
+  "identifier": "com.harfsaz.app",
   "build": {
     "beforeDevCommand": "pnpm dev",
     "devUrl": "http://localhost:3025",
@@ -12,7 +12,7 @@
   "app": {
     "windows": [
       {
-        "title": "Qalam — قلم",
+        "title": "Harfsaz — حرف ساز",
         "width": 1280,
         "height": 860,
         "minWidth": 900,
@@ -30,7 +30,7 @@
     "targets": "all",
     "category": "Productivity",
     "shortDescription": "AI-native Urdu & RTL desktop publishing",
-    "longDescription": "Qalam is a modern, AI-native desktop publishing app for Urdu, Arabic, Persian, Pashto, Sindhi and Hebrew — with Nastaliq typesetting, 50+ fonts, and built-in AI writing, proofreading and translation.",
+    "longDescription": "Harfsaz is a modern, AI-native desktop publishing app for Urdu, Arabic, Persian, Pashto, Sindhi and Hebrew — with Nastaliq typesetting, 50+ fonts, and built-in AI writing, proofreading and translation.",
     "copyright": "© 2026 Afzaal Ahmad",
     "icon": [
       "icons/32x32.png",

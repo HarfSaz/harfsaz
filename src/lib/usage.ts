@@ -38,7 +38,7 @@ function today(): string {
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
 }
 
-const STORAGE_KEY = "qalam.usage.v1";
+const STORAGE_KEY = "harfsaz.usage.v1";
 
 function load(): { plan: Plan; day: string; used: number } {
   try {

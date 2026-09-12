@@ -1,6 +1,6 @@
 // Document model + UI state for the DTP editor.
 //
-// A Qalam document is pages -> text frames. Frames hold Urdu text. This is the
+// A Harfsaz document is pages -> text frames. Frames hold Urdu text. This is the
 // skeleton of a real page-layout model (the InPage-defining feature: text frames
 // you place and, later, link so overflow flows frame->frame).
 import { useMemo } from "react";
@@ -77,7 +77,7 @@ export interface Page {
 
 export type Tool = "select" | "text" | "image" | "shape";
 
-/** Serializable document payload written to a .qalam file. */
+/** Serializable document payload written to a .harfsaz file. */
 export interface DocFile {
   version: 1;
   pages: Page[];
@@ -90,7 +90,7 @@ interface DocState {
   activeTool: Tool;
 
   // ── persistence / history ──
-  filePath: string | null; // absolute path of the open .qalam file
+  filePath: string | null; // absolute path of the open .harfsaz file
   fileName: string; // display name (e.g. "Untitled")
   dirty: boolean; // unsaved changes
   /** Message from the last failed save, or null when the last save succeeded.

@@ -21,7 +21,7 @@ export function Menu({
         <DropdownMenu.Content
           align="start"
           sideOffset={6}
-          className="z-50 min-w-[220px] rounded-xl border border-line bg-surface p-1.5 shadow-qalam animate-in fade-in-0 zoom-in-95"
+          className="z-50 min-w-[220px] rounded-xl border border-line bg-surface p-1.5 shadow-harfsaz animate-in fade-in-0 zoom-in-95"
         >
           {children}
         </DropdownMenu.Content>

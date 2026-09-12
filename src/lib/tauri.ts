@@ -10,7 +10,7 @@ export function isTauri(): boolean {
 function ensureTauri(feature: string): void {
   if (!isTauri()) {
     throw new Error(
-      `${feature} requires the Qalam desktop app (Tauri). Run "pnpm app:dev".`
+      `${feature} requires the Harfsaz desktop app (Tauri). Run "pnpm app:dev".`
     );
   }
 }

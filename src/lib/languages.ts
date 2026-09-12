@@ -16,7 +16,7 @@ export type LangCode =
   | "ar-h" | "fa-h" | "ur-h";
 export type Dir = "rtl" | "ltr";
 
-export interface QalamLanguage {
+export interface HarfsazLanguage {
   code: LangCode;
   label: string; // English name
   nativeLabel: string; // name in its own script
@@ -138,7 +138,7 @@ const URDU_H = diacritized(URDU);
 
 // ── Registry ────────────────────────────────────────────────────────────────
 
-export const LANGUAGES: QalamLanguage[] = [
+export const LANGUAGES: HarfsazLanguage[] = [
   // Defaults chosen from research: Nastaliq for Urdu; Amiri (Naskh) for Arabic;
   // Vazirmatn (Persian-tuned, covers Urdu letters) for Persian; Scheherazade
   // (SIL, broad coverage) for Pashto/Sindhi; Frank Ruhl Libre for Hebrew.
@@ -156,7 +156,7 @@ export const LANGUAGES: QalamLanguage[] = [
 
 export const DEFAULT_LANG: LangCode = "ur";
 
-export function getLanguage(code: LangCode | string): QalamLanguage {
+export function getLanguage(code: LangCode | string): HarfsazLanguage {
   return LANGUAGES.find((l) => l.code === code) ?? LANGUAGES[0];
 }
 

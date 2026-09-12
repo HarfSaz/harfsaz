@@ -9,7 +9,7 @@
 // appear completely dead: the store updates, the root's computed style updates,
 // and not one glyph changes. When the named font isn't installed the browser
 // falls back to the system Urdu face (Noto Nastaliq Urdu on macOS), which looks
-// exactly like Qalam's default — so the report is "it always shows the default".
+// exactly like Harfsaz's default — so the report is "it always shows the default".
 //
 // Policy, matching InPage and every DTP tool: pasted text adopts the frame's
 // style. We keep only line structure on paste, and on load we strip typography
