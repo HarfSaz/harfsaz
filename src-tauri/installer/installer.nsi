@@ -72,7 +72,7 @@ Var OldMainBinaryName
 
 Name "${PRODUCTNAME}"
 ; Bottom-of-window text shown on every installer page (including the progress page)
-BrandingText "Developed & Designed by Afzaal"
+BrandingText "harfsaz.com"
 OutFile "${OUTFILE}"
 
 ; We don't actually use this value as default install path,
@@ -406,7 +406,7 @@ Var AppStartMenuFolder
 !define MUI_FINISHPAGE_NOAUTOCLOSE
 ; Custom finish page text with Author credit
 !define MUI_FINISHPAGE_TITLE "Harfsaz Setup Complete"
-!define MUI_FINISHPAGE_TEXT "Harfsaz has been installed on your computer.$\r$\n$\r$\nAuthor: Afzaal$\r$\n$\r$\nClick Finish to close Setup."
+!define MUI_FINISHPAGE_TEXT "Harfsaz has been installed on your computer.$\r$\n$\r$\nClick Finish to close Setup."
 ; Use show readme button in the finish page as a button create a desktop shortcut
 !define MUI_FINISHPAGE_SHOWREADME
 !define MUI_FINISHPAGE_SHOWREADME_TEXT "$(createDesktop)"
@@ -414,9 +414,9 @@ Var AppStartMenuFolder
 ; Show run app after installation.
 !define MUI_FINISHPAGE_RUN
 !define MUI_FINISHPAGE_RUN_FUNCTION RunMainBinary
-; Clickable link to aiinak.com at the bottom of the finish page
-!define MUI_FINISHPAGE_LINK "Visit aiinak.com"
-!define MUI_FINISHPAGE_LINK_LOCATION "https://aiinak.com"
+; Clickable link to harfsaz.com at the bottom of the finish page
+!define MUI_FINISHPAGE_LINK "Visit harfsaz.com"
+!define MUI_FINISHPAGE_LINK_LOCATION "https://harfsaz.com"
 !define MUI_PAGE_CUSTOMFUNCTION_PRE SkipIfPassive
 !insertmacro MUI_PAGE_FINISH
 
@@ -643,7 +643,7 @@ Section Install
   SetOutPath $INSTDIR
 
   ; Credit line in the scrolling progress log
-  DetailPrint "Developed & Designed by Afzaal"
+  DetailPrint "harfsaz.com"
   DetailPrint " "
 
   !ifmacrodef NSIS_HOOK_PREINSTALL

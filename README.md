@@ -137,7 +137,9 @@ Harfsaz is **dual-licensed**:
   a closed-source or proprietary product), a separate commercial license is
   available. Contact **billing@harfsaz.com**.
 
-See [COPYRIGHT](COPYRIGHT). Bundled fonts are OFL-1.1 / Apache-2.0 and the shaping
+See [COPYRIGHT](COPYRIGHT). The Harfsaz name and logo are trademarks (see
+[TRADEMARKS.md](TRADEMARKS.md)); the bundled Harfsaz Kufi typeface is proprietary and
+licensed for use in Harfsaz only. All other bundled fonts are OFL-1.1 / Apache-2.0 and the shaping
 libraries are MIT — see [THIRD-PARTY-NOTICES.md](THIRD-PARTY-NOTICES.md).
 
-Copyright © 2024–2026 Afzaal Muhammad.
+Copyright © 2024–2026 HarfSaz · https://harfsaz.com

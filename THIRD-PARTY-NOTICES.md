@@ -9,7 +9,10 @@ AGPL-3.0 license.
 ## Fonts
 
 All bundled fonts in `public/fonts/` are open-licensed and freely
-redistributable. They are sourced from the [Google Fonts](https://fonts.google.com)
+redistributable, with one exception: **Harfsaz Kufi** (`HarfsazKufi-Regular.ttf`)
+is an original, proprietary typeface of HarfSaz, licensed for use within Harfsaz
+only — see `public/fonts/licenses/HarfsazKufi-LICENSE.txt` and `TRADEMARKS.md`.
+The rest They are sourced from the [Google Fonts](https://fonts.google.com)
 library and are licensed under either the **SIL Open Font License 1.1 (OFL)** or
 the **Apache License 2.0**, as noted by each project.
 
@@ -24,7 +27,7 @@ Lateef, Harmattan, Alkalami, Ruwudu, Aref Ruqaa, Gulzar, Mirza, Markazi Text,
 Reem Kufi, Qahiri, Katibeh, Jomhuria, Lalezar, Rakkas, Vibes, Mada, El Messiri,
 Vazirmatn, Vazir, Sahel, Samim, Shabnam, Estedad, Marhey, Kufam, Lemonada,
 Frank Ruhl Libre, David Libre, Heebo, Rubik, Assistant, Alef, Bellefair,
-Secular One, Suez One, Readex Pro, IBM Plex Sans Arabic, HarfsazKufi.
+Secular One, Suez One, Readex Pro, IBM Plex Sans Arabic.
 
 ### Apache License 2.0
 Cairo, Tajawal, Changa, Almarai, Baloo Bhaijaan 2.
@@ -45,5 +48,11 @@ Harfsaz's Nastaʿlīq / Arabic complex-text shaping is powered by:
 - **rustybuzz** — a pure-Rust port of HarfBuzz (MIT). https://github.com/harfbuzz/rustybuzz
 - **ttf-parser** (MIT/Apache-2.0). https://github.com/harfbuzz/ttf-parser
 
+The InPage (.inp) importer in `src-tauri/src/inpage.rs` is a Rust implementation
+of the InPage record format and character table documented by Kamal Abdali's
+`InpToUni` reference converter (https://github.com/KamalAbdali/InpageToUnicode),
+whose output it reproduces. Our thanks to him for reverse-engineering the format.
+
 Other dependencies are listed in `package.json`, `pnpm-lock.yaml`, and
-`src-tauri/Cargo.toml`, each under its own OSI-approved license.
+`src-tauri/Cargo.toml`, each under its own OSI-approved license — notably
+pdf.js (Apache-2.0), jsPDF (MIT), html2canvas-pro (MIT), React (MIT), Tauri (MIT/Apache-2.0).
