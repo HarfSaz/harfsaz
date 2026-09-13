@@ -844,6 +844,10 @@ async fn ocr_anthropic(
         return Err("The model declined to transcribe that attachment.".into());
     }
 
+    if json.get("stop_reason").and_then(|s| s.as_str()) == Some("max_tokens") {
+        return Err("The scan exceeded the output limit. Scan fewer pages or crop the image and retry.".into());
+    }
+
     let text = json
         .get("content")
         .and_then(|c| c.as_array())
@@ -919,6 +923,10 @@ async fn ocr_openai(
         return Err(format!(
             "LLM provider error ({status}): {msg}. Note that the selected model must support image input."
         ));
+    }
+
+    if json.pointer("/choices/0/finish_reason").and_then(|s| s.as_str()) == Some("length") {
+        return Err("The scan exceeded the output limit. Scan fewer pages or crop the image and retry.".into());
     }
 
     let text = json
