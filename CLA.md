@@ -1,7 +1,7 @@
 # Contributor License Agreement (CLA)
 
 Thank you for your interest in contributing to Harfsaz ("the Project"), maintained
-by Afzaal Muhammad ("the Maintainer").
+by HarfSaz ("the Maintainer").
 
 To keep Harfsaz sustainable, the Project is offered under a dual-licensing model:
 the **AGPL-3.0** for the open-source community, and a separate **commercial

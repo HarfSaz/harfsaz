@@ -1,0 +1,27 @@
+Harfsaz Kufi — Font Licence
+
+Copyright (c) 2024-2026 HarfSaz. All rights reserved.
+
+Harfsaz Kufi (HarfsazKufi-Regular.ttf) is an original typeface created for the
+Harfsaz application. It is proprietary and is NOT covered by the GNU AGPL-3.0
+that applies to the Harfsaz source code, nor by the SIL Open Font License.
+
+Permitted use
+
+  1. You may use the font as bundled in unmodified and modified builds of the
+     Harfsaz application obtained from https://harfsaz.com or built from the
+     official repository, to create, view and print documents.
+  2. Documents, PDFs and printed material you produce with the font are yours;
+     the font outlines embedded in a PDF exported from Harfsaz may be
+     distributed freely with that document.
+
+Not permitted
+
+  3. Redistributing the font file on its own, in font bundles, or as part of any
+     software other than Harfsaz.
+  4. Modifying, renaming, subsetting for redistribution, or converting the font
+     for use outside Harfsaz.
+  5. Bundling the font in a fork or derivative of Harfsaz distributed under a
+     different name. Forks must remove this file.
+
+For licensing enquiries: info@harfsaz.com
