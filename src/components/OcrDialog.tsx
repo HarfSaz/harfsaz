@@ -63,11 +63,13 @@ export function OcrDialog() {
   const [note, setNote] = useState<string | null>(null);
   const [dragging, setDragging] = useState(false);
 
+  const generation = useRef(0);
   const resultRef = useRef<HTMLTextAreaElement>(null);
 
   // Reset everything when the dialog closes so the next scan starts clean.
   useEffect(() => {
     if (open) return;
+    generation.current++;
     setFile(null);
     setResult(null);
     setError(null);
@@ -89,12 +91,18 @@ export function OcrDialog() {
 
   async function accept(f: File | null) {
     if (!f) return;
+    const request = ++generation.current;
+    setFile(null);
+    setBusy(false);
     setError(null);
     setNote(null);
     setResult(null);
     try {
-      setFile(await readAttachment(f));
+      const attachment = await readAttachment(f);
+      if (request !== generation.current) return;
+      setFile(attachment);
     } catch (e) {
+      if (request !== generation.current) return;
       setFile(null);
       setError(e instanceof Error ? e.message : String(e));
     }
@@ -129,6 +137,7 @@ export function OcrDialog() {
       setUpgradeOpen(true);
       return;
     }
+    const request = ++generation.current;
     setBusy(true);
     setError(null);
     setNote(null);
@@ -142,14 +151,16 @@ export function OcrDialog() {
         instruction: instruction.trim() || undefined,
       });
       record(res.tokens);
+      if (request !== generation.current) return;
       setResult(res.text);
-      setNote(`Transcribed with ${res.model}.`);
+      setNote(`Transcribed with ${res.model}.${lang === "auto" ? " Choose the result language before inserting so the correct font and direction are used." : ""}`);
       // Put the caret in the result so corrections can start immediately.
       requestAnimationFrame(() => resultRef.current?.focus());
     } catch (e) {
+      if (request !== generation.current) return;
       setError(String(e));
     } finally {
-      setBusy(false);
+      if (request === generation.current) setBusy(false);
     }
   }
 
@@ -160,10 +171,10 @@ export function OcrDialog() {
   }
 
   function intoSelected(insertMode: "replace" | "append") {
-    if (!sel || !result) return;
+    if (!sel || !result || busy || lang === "auto" || (sel.frame.kind && sel.frame.kind !== "text")) return;
     // Match the frame's script to the transcription, otherwise Urdu text can
     // land in a frame still configured for Hebrew or English.
-    const patch = frameLangPatch();
+    const patch = insertMode === "replace" ? frameLangPatch() : {};
     if (Object.keys(patch).length) {
       useDoc.getState().updateFrame(sel.page.id, sel.frame.id, patch);
     }
@@ -172,7 +183,7 @@ export function OcrDialog() {
   }
 
   function intoNewFrame() {
-    if (!result) return;
+    if (!result || busy || lang === "auto") return;
     const page = pages.find((p) => p.id === activePageId) ?? pages[0];
     if (!page) return;
     const width = Math.round(page.width * 0.7);
@@ -305,10 +316,11 @@ export function OcrDialog() {
 
               <div className="grid grid-cols-2 gap-3">
                 <Field label="Language">
-                  <Select value={lang} onChange={setLang} options={OCR_LANGS} className="w-full" />
+                  <Select disabled={busy} value={lang} onChange={setLang} options={OCR_LANGS} className="w-full" />
                 </Field>
                 <Field label="Layout">
                   <Select
+                    disabled={busy}
                     value={mode}
                     onChange={(v) => setMode(v as OcrMode)}
                     options={MODES}
@@ -320,6 +332,7 @@ export function OcrDialog() {
               <label className="flex cursor-pointer items-center gap-2 text-xs text-ink">
                 <input
                   type="checkbox"
+                  disabled={busy}
                   checked={diacritics}
                   onChange={(e) => setDiacritics(e.target.checked)}
                   className="h-3.5 w-3.5 accent-[color:var(--accent)]"
@@ -329,6 +342,7 @@ export function OcrDialog() {
 
               <Field label="Extra instruction (optional)">
                 <input
+                  disabled={busy}
                   value={instruction}
                   onChange={(e) => setInstruction(e.target.value)}
                   placeholder="e.g. this is a poem — keep each verse on its own line"
@@ -400,14 +414,14 @@ export function OcrDialog() {
             </Dialog.Close>
             <button
               onClick={intoNewFrame}
-              disabled={!result}
+              disabled={!result || busy || lang === "auto"}
               className="rounded-md border border-line px-4 py-1.5 text-sm hover:bg-paper-edge disabled:opacity-40"
             >
               New text frame
             </button>
             <button
               onClick={() => intoSelected("append")}
-              disabled={!result || !sel}
+              disabled={!result || busy || lang === "auto" || !sel || (!!sel.frame.kind && sel.frame.kind !== "text")}
               title={sel ? "Add below the selected frame's text" : "Select a frame first"}
               className="rounded-md border border-line px-4 py-1.5 text-sm hover:bg-paper-edge disabled:opacity-40"
             >
@@ -415,7 +429,7 @@ export function OcrDialog() {
             </button>
             <button
               onClick={() => intoSelected("replace")}
-              disabled={!result || !sel}
+              disabled={!result || busy || lang === "auto" || !sel || (!!sel.frame.kind && sel.frame.kind !== "text")}
               title={sel ? "Replace the selected frame's text" : "Select a frame first"}
               className="rounded-md bg-accent px-4 py-1.5 text-sm font-medium text-white hover:bg-accent-deep disabled:opacity-45"
             >

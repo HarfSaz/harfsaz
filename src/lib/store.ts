@@ -3,20 +3,15 @@
 // A Harfsaz document is pages -> text frames. Frames hold Urdu text. This is the
 // skeleton of a real page-layout model (the InPage-defining feature: text frames
 // you place and, later, link so overflow flows frame->frame).
+import { PageSetup, NumberStyle, validPageSetup } from "../editor/publishing";
 import { useMemo } from "react";
 import { create } from "zustand";
 import { LangCode, Dir, DEFAULT_LANG } from "./languages";
 import { sanitizeStoredHtml } from "../editor/sanitize";
 
 export type FrameKind = "text" | "image" | "shape";
-export type ShapeKind =
-  | "rect"
-  | "rounded"
-  | "ellipse"
-  | "line"
-  | "triangle"
-  | "arrow"
-  | "star";
+import type { ShapeKind } from "../editor/shapeGeometry";
+export type { ShapeKind } from "../editor/shapeGeometry";
 
 export interface TextFrame {
   id: string;
@@ -73,6 +68,8 @@ export interface Page {
   width: number;
   height: number;
   frames: TextFrame[];
+  margin?: number;
+  pageNumber?: { value: number; style: NumberStyle };
 }
 
 export type Tool = "select" | "text" | "image" | "shape";
@@ -106,6 +103,7 @@ interface DocState {
 
   setTool: (tool: Tool) => void;
   addPage: () => void;
+  configurePages: (setup: PageSetup) => void;
   addFrame: (pageId: string) => void;
   /** Insert a frame of `kind` at an explicit rect (from draw-to-create). */
   addFrameAt: (
@@ -115,7 +113,7 @@ interface DocState {
     extra?: Partial<TextFrame>
   ) => void;
   removeFrame: (pageId: string, frameId: string) => void;
-  updateFrame: (pageId: string, frameId: string, patch: Partial<TextFrame>) => void;
+  updateFrame: (pageId: string, frameId: string, patch: Partial<TextFrame>, checkpoint?: boolean) => void;
   /** Replace a frame's content programmatically (AI apply/insert). Sets text +
    *  rebuilds html, snapshots history, and bumps revision so a focused editor
    *  reseeds. `mode`: "replace" overwrites, "append" adds after existing text. */
@@ -336,9 +334,27 @@ export const useDoc = create<DocState>((set, get) => {
 
   setTool: (tool) => set({ activeTool: tool }),
 
+  configurePages: (setup) => set((s) => {
+    if (!validPageSetup(setup)) return s;
+    return { ...snapshot(s), revision: s.revision + 1, pages: s.pages.map((p, i) => ({
+      ...p, width: setup.width, height: setup.height, margin: setup.margin,
+      pageNumber: setup.numbering ? { value: setup.start + i, style: setup.numberStyle } : undefined,
+      frames: p.frames.map(f => f.isPageFrame ? { ...f, x: setup.margin, y: setup.margin,
+        width: setup.width - setup.margin * 2, height: setup.height - setup.margin * 2 } : f),
+    })) };
+  }),
+
   addPage: () =>
     set((s) => {
       const p = makePage();
+      const previous = s.pages[s.pages.length - 1];
+      if (previous) {
+        p.width = previous.width; p.height = previous.height; p.margin = previous.margin ?? 40;
+        if (previous.pageNumber) p.pageNumber = { ...previous.pageNumber, value: previous.pageNumber.value + 1 };
+        const main = previous.frames.find(f => f.isPageFrame);
+        p.frames[0] = { ...p.frames[0], ...(main ? { fontKey: main.fontKey, fontSize: main.fontSize, lang: main.lang, dir: main.dir, align: main.align } : {}),
+          text: "", x: p.margin, y: p.margin, width: p.width - 2 * p.margin, height: p.height - 2 * p.margin };
+      }
       return {
         ...snapshot(s),
         pages: [...s.pages, p],
@@ -381,7 +397,7 @@ export const useDoc = create<DocState>((set, get) => {
       selectedFrameId: s.selectedFrameId === frameId ? null : s.selectedFrameId,
     })),
 
-  updateFrame: (pageId, frameId, patch) =>
+  updateFrame: (pageId, frameId, patch, checkpoint = false) =>
     set((s) => {
       // Typing (text/html-only edits) coalesces into WORD-sized undo steps; any
       // other change (move, style, font, …) always snapshots.
@@ -412,13 +428,14 @@ export const useDoc = create<DocState>((set, get) => {
         const frameChanged = lastEditFrame !== frameId;
         const paused = now - lastEditAt > COALESCE_PAUSE_MS;
         const startsNewWord = endsAtWordBoundary(prevText);
-        const newGroup = frameChanged || paused || startsNewWord;
+        const formattingChanged = checkpoint || (nextText === prevText && nextHtml !== prevHtml);
+        const newGroup = formattingChanged || frameChanged || paused || startsNewWord;
 
         // Snapshot to open a new group, OR on the very first edit; else coalesce.
         base = newGroup || !s.dirty ? snapshot(s) : { dirty: true };
 
         lastEditFrame = frameId;
-        lastEditAt = now;
+        lastEditAt = formattingChanged ? 0 : now;
       }
       return {
         ...base,
@@ -441,7 +458,8 @@ export const useDoc = create<DocState>((set, get) => {
       const prevText = prev?.text ?? "";
       const nextText = mode === "append" && prevText ? `${prevText}\n${text}` : text;
       // Rebuild html as block-per-line so the editor renders it and alignment works.
-      const html = textToHtml(nextText);
+      if (!prev || (prev.kind && prev.kind !== "text")) return s;
+      const html = mode === "append" && prevText ? (prev.html ?? textToHtml(prevText)) + textToHtml(text) : textToHtml(nextText);
       return {
         ...snapshot(s),
         revision: s.revision + 1, // force the (possibly focused) editor to reseed

@@ -6,7 +6,9 @@ import {
   aiProofreadInline,
   aiAddDiacritics,
   ChatMessage,
+  isTauri,
 } from "../lib/tauri";
+import { CloudError, loginUrl, siteUrl } from "../lib/cloud";
 import { useDoc, useSelectedFrame } from "../lib/store";
 import { useSuggestions } from "../lib/suggestions";
 import { getLanguage } from "../lib/languages";
@@ -53,10 +55,12 @@ export function AiPanel() {
   const record = useUsage((s) => s.record);
   const rollDay = useUsage((s) => s.rollDay);
   const setPlan = useUsage((s) => s.setPlan);
+  const cloud = useUsage((s) => s.cloud);
+  const syncCloud = useUsage((s) => s.syncCloud);
   const setUpgradeOpen = useUi((s) => s.setUpgradeOpen);
   const setSettingsOpen = useUi((s) => s.setSettingsOpen);
-  const settingsOpen = useUi((s) => s.settingsOpen);
   const setOcrOpen = useUi((s) => s.setOcrOpen);
+  const settingsOpen = useUi((s) => s.settingsOpen);
   useEffect(() => {
     rollDay();
   }, [rollDay]);
@@ -80,6 +84,15 @@ export function AiPanel() {
   // uncaps usage (BYOK) — the meter only protects a hosted/free tier.
   useEffect(() => {
     if (settingsOpen) return;
+    if (!isTauri()) {
+      // Web editor: a signed-in Harfsaz account is the "key"; quota comes from
+      // the server. Re-checked whenever the tab regains focus (sign-in opens
+      // in a new tab so an unsaved document here is never lost).
+      const check = () => syncCloud().then(() => setKeyOk(useUsage.getState().cloud?.signedIn ?? false));
+      check();
+      window.addEventListener("focus", check);
+      return () => window.removeEventListener("focus", check);
+    }
     aiKeyPresent()
       .then((ok) => {
         setKeyOk(ok);
@@ -89,10 +102,37 @@ export function AiPanel() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [settingsOpen]);
 
+  /** Turn an AI failure into the right UI: sign-in, upgrade, or a message. */
+  function handleAiError(e: unknown) {
+    if (e instanceof CloudError) {
+      if (e.code === "auth") {
+        setKeyOk(false);
+        setError("Sign in to use Harfsaz AI.");
+        return;
+      }
+      if (e.code === "quota") {
+        syncCloud();
+        setError(e.message);
+        setUpgradeOpen(true);
+        return;
+      }
+    }
+    setError(String(e));
+  }
+
   /** Gate an AI call: block at the daily cap, record tokens after success. */
   async function gated<T extends { tokens: number }>(fn: () => Promise<T>): Promise<T | null> {
+    if (keyOk !== true) {
+      if (isTauri()) setSettingsOpen(true);
+      else window.open(loginUrl(), "_blank", "noopener");
+      return null;
+    }
     if (!canUse) {
-      setError("Daily free AI limit reached — upgrade or add your own key.");
+      setError(
+        isTauri()
+          ? "Daily free AI limit reached — upgrade or add your own key."
+          : `You've used your ${cloud?.window === "month" ? "monthly" : "daily"} AI actions — upgrade for more.`
+      );
       setUpgradeOpen(true);
       return null;
     }
@@ -104,7 +144,7 @@ export function AiPanel() {
   /** Send a message (from the composer or a quick action) into the chat thread. */
   async function send(text: string) {
     const prompt = text.trim();
-    if (!prompt || busy) return;
+    if (!prompt || busy || proofBusy || keyOk !== true) return;
     setError(null);
 
     // Append the user's message and build the history we'll send.
@@ -121,7 +161,7 @@ export function AiPanel() {
         setMessages((m) => [...m, { role: "assistant", content: res.output }]);
       }
     } catch (e) {
-      setError(String(e));
+      handleAiError(e);
     } finally {
       setBusy(false);
     }
@@ -158,7 +198,7 @@ export function AiPanel() {
           : `${res.corrections.length} suggestion(s) — review in the frame.`
       );
     } catch (e) {
-      setError(String(e));
+      handleAiError(e);
     } finally {
       setProofBusy(false);
     }
@@ -179,7 +219,7 @@ export function AiPanel() {
       const res = await gated(() => aiAddDiacritics(sel.frame.text, baseLang));
       if (res) setMessages((m) => [...m, { role: "assistant", content: res.output }]);
     } catch (e) {
-      setError(String(e));
+      handleAiError(e);
     } finally {
       setBusy(false);
     }
@@ -190,7 +230,7 @@ export function AiPanel() {
       {/* Header */}
       <div className="ai-header pl-8">
         <div className="flex items-center justify-between">
-          <h2>AI Assistant</h2>
+          <h2>Writing assistant</h2>
           <div className="flex items-center gap-1">
             {messages.length > 0 && (
               <button
@@ -201,38 +241,56 @@ export function AiPanel() {
                 Clear
               </button>
             )}
-            <button
-              title="AI settings (provider & key)"
-              className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
-              onClick={() => setSettingsOpen(true)}
-            >
-              <Settings size={16} />
-            </button>
+            {isTauri() ? (
+              <button
+                aria-label="AI settings" title="AI settings (provider & key)"
+                className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
+                onClick={() => setSettingsOpen(true)}
+              >
+                <Settings size={16} />
+              </button>
+            ) : (
+              cloud?.signedIn && (
+                <a
+                  aria-label="Account" title="Your Harfsaz account and plan"
+                  className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
+                  href={siteUrl("/account")} target="_blank" rel="noopener"
+                >
+                  <Settings size={16} />
+                </a>
+              )
+            )}
           </div>
         </div>
-        {keyOk === false && (
-          <p className="ai-warn">
-            No API key —{" "}
-            <button className="underline" onClick={() => setSettingsOpen(true)}>
-              open Settings
-            </button>{" "}
-            to add one.
-          </p>
-        )}
       </div>
 
-      {/* Meter / status (compact) */}
-      {plan === "free" ? (
-        <button
-          onClick={() => setUpgradeOpen(true)}
-          className="shrink-0 rounded-lg border border-line bg-paper px-3 py-1.5 text-left text-[11px] text-ink-soft hover:border-accent"
-        >
-          Free AI: <span className="font-medium text-ink">{remaining.toLocaleString()}</span> tokens
-          left today · <span className="text-accent-deep">Upgrade →</span>
-        </button>
-      ) : (
-        <div className="shrink-0 rounded-lg border border-accent/40 bg-paper px-3 py-1 text-[11px] font-medium text-accent-deep">
-          ✦ Unlimited ({plan === "pro" ? "Pro" : "your key"})
+      {keyOk === false && isTauri() && (
+        <div className="ai-setup">
+          <strong>A little help with your next draft.</strong>
+          Connect your AI provider to write, translate, and proofread in Urdu, Persian, Arabic, or English.
+          <button onClick={() => setSettingsOpen(true)}>Connect AI provider →</button>
+        </div>
+      )}
+      {keyOk === false && !isTauri() && (
+        <div className="ai-setup">
+          <strong>A little help with your next draft.</strong>
+          Sign in to write, translate, and proofread in Urdu, Persian, Arabic, or English — free, 20 actions a day.
+          <a href={loginUrl()} target="_blank" rel="noopener">Sign in to Harfsaz →</a>
+        </div>
+      )}
+      {keyOk === null && <p role="status" className="text-xs text-ink-soft">Checking AI connection…</p>}
+      {keyOk === true && (
+        <div className="text-[11px] text-ink-soft">
+          {!isTauri() && cloud ? (
+            <a href={siteUrl(cloud.plan === "free" ? "/pricing" : "/account")} target="_blank" rel="noopener" className="hover:text-ink">
+              {remaining.toLocaleString()} of {cloud.actions} AI actions left {cloud.window === "day" ? "today" : "this month"}
+              {cloud.plan === "free" ? " · Upgrade →" : " · Pro"}
+            </a>
+          ) : plan === "free" ? (
+            `${remaining.toLocaleString()} tokens available today`
+          ) : (
+            "Connected · Your AI provider"
+          )}
         </div>
       )}
 
@@ -244,18 +302,10 @@ export function AiPanel() {
         {messages.length === 0 && (
           <div className="flex flex-1 flex-col items-center justify-center gap-2 px-4 text-center text-xs text-ink-soft">
             <Sparkles size={22} className="opacity-40" />
-            <p>
-              Ask anything — اردو, English, عربي.
-              <br />
-              e.g. “write a 2-line poem” or “ایک خبر کی سرخی لکھیں”.
-            </p>
-            <p className="rounded-md border border-line bg-paper/60 px-2.5 py-1.5 leading-relaxed">
-              Have it on paper?{" "}
-              <button className="font-medium text-accent-deep underline" onClick={() => setOcrOpen(true)}>
-                Scan handwriting
-              </button>{" "}
-              turns a photo or PDF into editable Nastaliq text.
-            </p>
+            <h3 className="mt-2 text-base font-semibold text-ink">Find the right words.</h3>
+            <p className="max-w-[240px] leading-relaxed">Start a draft, refine an idea, or translate a passage. Review each suggestion before adding it.</p>
+            {keyOk === true && <button className="mt-3 text-xs" onClick={() => setInput("Write a short poem in Urdu about a new beginning.")}>Help me write a short poem →</button>}
+
           </div>
         )}
 
@@ -280,7 +330,7 @@ export function AiPanel() {
                   className="rounded-md border border-line px-2 py-0.5 text-[11px] text-ink hover:bg-paper-edge disabled:opacity-40"
                   title="Replace the frame's text"
                 >
-                  ↹ Add to frame
+                  Replace text
                 </button>
                 <button
                   disabled={!sel}
@@ -308,7 +358,7 @@ export function AiPanel() {
         )}
       </div>
 
-      {error && <p className="ai-error shrink-0">{error}</p>}
+      {error && <p role="alert" className="ai-error shrink-0">{error}</p>}
 
       {/* ── Tools ──
           Split into two tiers: document tools that do something structural, and
@@ -317,42 +367,40 @@ export function AiPanel() {
       <div className="flex shrink-0 flex-col gap-1.5">
         <div className="flex flex-wrap gap-1.5">
           <button
-            className="flex items-center gap-1 rounded-md border border-accent bg-accent/5 px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-accent/10"
+            className="flex items-center gap-1 rounded-md border border-line px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-paper-edge"
             onClick={() => setOcrOpen(true)}
-            title="Attach a photo, scan or PDF of handwriting and turn it into editable text"
+            title="Turn a photo, scan, or PDF into editable text"
           >
             <Sparkles size={13} /> Scan handwriting
           </button>
           <button
             className="flex items-center gap-1 rounded-md border border-accent px-2 py-1 text-[11px] font-medium text-accent-deep hover:bg-paper-edge disabled:opacity-40"
-            disabled={proofBusy || !sel}
+            disabled={proofBusy || busy || keyOk !== true || !sel?.frame.text.trim()}
             onClick={proofread}
             title={sel ? "Find spelling and grammar issues in this frame" : "Select a frame first"}
           >
             <CheckCheck size={13} /> {proofBusy ? "Proofreading…" : "Proofread"}
             {suggestionCount > 0 && <span>({suggestionCount})</span>}
           </button>
-          {canDiacritize && (
             <button
               className="rounded-md border border-line px-2 py-1 text-[11px] font-medium text-ink hover:bg-paper-edge disabled:opacity-40"
-              disabled={busy || !sel}
+              disabled={!canDiacritize || busy || proofBusy || keyOk !== true || !sel?.frame.text.trim()}
               onClick={addDiacritics}
-              title="Add short-vowel marks (aerab / harakat)"
+              title={canDiacritize ? "Add short-vowel marks (aerab / harakat)" : "Available for Urdu, Arabic, and Persian text"}
             >
-              تشکیل
+              Add vowel marks
             </button>
-          )}
         </div>
 
         <details className="group" open>
           <summary className="cursor-pointer list-none text-[10px] font-semibold uppercase tracking-wider text-ink-soft marker:content-none hover:text-ink">
-            Quick actions on this frame
+            Rewrite current text box
           </summary>
           <div className="mt-1.5 flex flex-wrap gap-1">
             {QUICK.map((q) => (
               <button
                 key={q.label}
-                disabled={busy || !sel}
+                disabled={busy || proofBusy || keyOk !== true || !sel?.frame.text.trim()}
                 onClick={() => quick(q)}
                 className="rounded-md border border-line px-2 py-1 text-[11px] text-ink hover:border-accent/60 hover:bg-paper-edge disabled:opacity-40"
               >
@@ -369,7 +417,9 @@ export function AiPanel() {
         <textarea
           className="ai-instruction min-h-[44px] flex-1"
           dir="auto"
-          placeholder="Message AI… (Enter to send, Shift+Enter for newline)"
+          aria-label="Message writing assistant"
+          disabled={keyOk !== true}
+          placeholder={keyOk === true ? "Ask your writing assistant…" : isTauri() ? "Connect a provider to get started" : "Sign in to get started"}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {
@@ -382,7 +432,8 @@ export function AiPanel() {
         />
         <button
           className="flex h-[44px] items-center justify-center gap-1.5 rounded-lg bg-accent px-3 text-sm font-medium text-white transition-colors hover:bg-accent-deep disabled:opacity-45"
-          disabled={busy || !input.trim()}
+          aria-label="Send message"
+          disabled={busy || proofBusy || keyOk !== true || !input.trim()}
           onClick={() => send(input)}
           title="Send (Enter)"
         >

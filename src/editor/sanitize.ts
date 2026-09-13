@@ -78,7 +78,10 @@ export function sanitizeStoredHtml(html: string | undefined): string | undefined
     const style = (el as HTMLElement).style;
     if (style && style.length) {
       for (const prop of Array.from(style)) {
-        if (STRIP_STYLE_PROPS.has(prop)) style.removeProperty(prop);
+        const ownParagraph = /^(DIV|P|LI|H[1-6])$/.test(el.tagName) &&
+          ["body", "heading", "subheading", "caption"].includes(el.getAttribute("data-harfsaz-style") ?? "");
+        const paragraphMetric = ownParagraph && (prop === "font-size" || prop === "line-height");
+        if (STRIP_STYLE_PROPS.has(prop) && !paragraphMetric) style.removeProperty(prop);
       }
       if (!style.length) el.removeAttribute("style");
     }

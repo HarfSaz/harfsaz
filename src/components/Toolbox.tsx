@@ -1,4 +1,6 @@
 import { useState } from "react";
+import * as DropdownMenu from "@radix-ui/react-dropdown-menu";
+import { isOpenShape } from "../editor/shapeGeometry";
 import { Cursor, TextTool, ImageTool, ShapeTool, Sparkles } from "./ui/icons";
 import { useDoc, ShapeKind } from "../lib/store";
 import { useUi } from "../lib/ui";
@@ -38,20 +40,22 @@ export function Toolbox() {
   }
 
   function insertShape(kind: ShapeKind) {
-    const isLine = kind === "line" || kind === "arrow";
-    insertCentered("shape", 220, isLine ? 80 : 160, { shape: kind });
+    const open = isOpenShape(kind);
+    insertCentered("shape", kind === "line-vertical" ? 40 : 220,
+      kind === "line-vertical" ? 180 : open ? 60 : 160,
+      { shape: kind, ...(open ? { borderWidth: 3, borderColor: "#87633e" } : {}) });
   }
 
   const tileCls = (active: boolean) =>
     `flex w-14 flex-col items-center gap-1 rounded-md py-2 transition-colors ${
-      active ? "bg-accent text-white" : "text-ink-soft hover:bg-paper-edge"
+      active ? "bg-accent/10 text-accent-deep" : "text-ink-soft hover:bg-paper-edge"
     }`;
 
   return (
-    <aside className="flex w-16 flex-col items-center gap-1 border-r border-line bg-surface py-2">
+    <aside aria-label="Insert and selection tools" className="tool-rail flex w-[72px] shrink-0 flex-col items-center gap-2 border-r border-line bg-surface py-4">
       {/* Select */}
       <IconTip label="Select (V)">
-        <button data-active={activeTool === "select"} onClick={() => setTool("select")} className={tileCls(activeTool === "select")}>
+        <button aria-pressed={activeTool === "select"} data-active={activeTool === "select"} onClick={() => setTool("select")} className={tileCls(activeTool === "select")}>
           <Cursor size={18} />
           <span className="text-[10px] font-medium">Select</span>
         </button>
@@ -59,7 +63,7 @@ export function Toolbox() {
 
       {/* Text — arm draw-to-create */}
       <IconTip label="Text frame (T)">
-        <button data-active={activeTool === "text"} onClick={() => setTool("text")} className={tileCls(activeTool === "text")}>
+        <button aria-pressed={activeTool === "text"} data-active={activeTool === "text"} onClick={() => setTool("text")} className={tileCls(activeTool === "text")}>
           <TextTool size={18} />
           <span className="text-[10px] font-medium">Text</span>
         </button>
@@ -73,44 +77,35 @@ export function Toolbox() {
         </button>
       </IconTip>
 
-      {/* Shape — popover grid of shapes */}
-      {/* Shape — plain state-toggled popover (reliable onClick) */}
-      <div className="relative">
-        <IconTip label="Insert shape (S)">
-          <button className={tileCls(shapeOpen)} onClick={() => setShapeOpen((o) => !o)}>
+      <DropdownMenu.Root open={shapeOpen} onOpenChange={setShapeOpen}>
+        <DropdownMenu.Trigger asChild>
+          <button aria-label="Insert shape" className={tileCls(shapeOpen)}>
             <ShapeTool size={18} />
             <span className="text-[10px] font-medium">Shape</span>
           </button>
-        </IconTip>
-        {shapeOpen && (
-          <>
-            {/* click-away backdrop */}
-            <div className="fixed inset-0 z-40" onClick={() => setShapeOpen(false)} />
-            <div className="absolute left-full top-0 z-50 ml-2 w-44 rounded-xl border border-line bg-surface p-2 shadow-harfsaz">
-              <p className="mb-1.5 px-1 text-[10px] font-medium uppercase tracking-wide text-ink-soft">
-                Insert shape
-              </p>
-              <div className="grid grid-cols-3 gap-1.5">
-                {SHAPES.map((s) => (
-                  <button
-                    key={s.kind}
-                    title={s.label}
-                    onClick={() => {
-                      insertShape(s.kind);
-                      setShapeOpen(false);
-                    }}
-                    className="flex h-12 w-12 items-center justify-center rounded-lg border border-line transition-colors hover:border-accent hover:bg-paper-edge"
-                  >
-                    <div className="h-6 w-7">
-                      <Shape kind={s.kind} width={28} height={24} fill="#9a6b3f" borderWidth={0} borderColor="#9a6b3f" />
-                    </div>
-                  </button>
-                ))}
-              </div>
-            </div>
-          </>
-        )}
-      </div>
+        </DropdownMenu.Trigger>
+        <DropdownMenu.Portal>
+          <DropdownMenu.Content side="right" align="start" sideOffset={10}
+            className="z-50 max-h-[70vh] w-72 overflow-y-auto rounded-xl border border-line bg-surface p-3 shadow-harfsaz">
+            {(["Basic", "Lines & arrows", "Symbols"] as const).map((group) => (
+              <DropdownMenu.Group key={group}>
+                <DropdownMenu.Label className="px-1 pb-2 pt-3 text-[10px] font-semibold uppercase tracking-wide text-ink-soft">{group}</DropdownMenu.Label>
+                <div className="grid grid-cols-3 gap-1">
+                  {SHAPES.filter((s) => s.group === group).map((s) => (
+                    <DropdownMenu.Item key={s.kind} onSelect={() => insertShape(s.kind)}
+                      className="flex min-h-20 cursor-pointer flex-col items-center justify-center gap-2 rounded-md p-2 text-center text-[10px] text-ink outline-none data-[highlighted]:bg-paper-edge">
+                      <div className="h-6 w-8">
+                        <Shape kind={s.kind} width={32} height={24} fill="#87633e" borderWidth={isOpenShape(s.kind) ? 2 : 0} borderColor="#87633e" />
+                      </div>
+                      <span>{s.label}</span>
+                    </DropdownMenu.Item>
+                  ))}
+                </div>
+              </DropdownMenu.Group>
+            ))}
+          </DropdownMenu.Content>
+        </DropdownMenu.Portal>
+      </DropdownMenu.Root>
 
       <span className="my-1 h-px w-8 bg-line" />
 

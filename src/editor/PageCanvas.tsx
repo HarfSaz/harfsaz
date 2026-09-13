@@ -1,3 +1,4 @@
+import { pageNumber } from "./publishing";
 import { useRef, useState } from "react";
 import { Page, useDoc } from "../lib/store";
 import { TextFrameView } from "./TextFrameView";
@@ -93,6 +94,9 @@ export function PageCanvas({ page }: { page: Page }) {
           <TextFrameView key={frame.id} pageId={page.id} frame={frame} />
         ))}
 
+        {page.pageNumber && <div aria-label="Page number" style={{ position: "absolute", bottom: 4, left: 0, width: "100%", textAlign: "center", fontSize: 16, lineHeight: "20px", color: "#1a1714", pointerEvents: "none" }}>
+          {pageNumber(page.pageNumber.value, page.pageNumber.style)}
+        </div>}
         {/* Draw-to-create marquee */}
         {marquee && (
           <div

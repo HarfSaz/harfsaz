@@ -13,6 +13,8 @@ import { LangCode, Dir } from "../lib/languages";
  * caret jumps — a controlled contentEditable fights the browser's bidi caret.
  */
 export function RichEditor({
+  frameId,
+  readOnly = false,
   html,
   fallbackText,
   phonetic,
@@ -23,6 +25,8 @@ export function RichEditor({
   onChange,
   revision,
 }: {
+  frameId: string;
+  readOnly?: boolean;
   html: string | undefined;
   fallbackText: string;
   phonetic: boolean;
@@ -30,12 +34,13 @@ export function RichEditor({
   dir: Dir;
   phoneticMap: Record<string, string> | undefined;
   style: React.CSSProperties;
-  onChange: (html: string, text: string) => void;
+  onChange: (html: string, text: string, checkpoint?: boolean) => void;
   /** Bumped on undo/redo/load — forces a reseed even while the editor is focused. */
   revision: number;
 }) {
   const ref = useRef<HTMLDivElement>(null);
   const initialized = useRef(false);
+  const lastEmitted = useRef<string | null>(null);
 
   // Make Enter create block elements (<div>) per line instead of <br>. Each line
   // being its own block is what lets per-paragraph alignment (justifyRight/etc.)
@@ -65,6 +70,7 @@ export function RichEditor({
     ) {
       el.innerHTML = html && html.length > 0 ? html : seedHtml(fallbackText);
       initialized.current = true;
+      lastEmitted.current = el.innerHTML;
       // Restore caret to the end after a forced reseed so typing can continue.
       if (revChanged && isFocused) placeCaretAtEnd(el);
     }
@@ -74,14 +80,14 @@ export function RichEditor({
   // browser's input event; emitting the same HTML twice can create a redundant
   // history step. Skip the input-event emit if the HTML hasn't changed since the
   // last emit.
-  const lastEmitted = useRef<string | null>(null);
-  function emit() {
+  function emit(event?: Event | React.FormEvent) {
     const el = ref.current;
     if (!el) return;
+    if (el.dataset.formatting === "true") return;
     const html = el.innerHTML;
     if (html === lastEmitted.current) return;
     lastEmitted.current = html;
-    onChange(html, el.innerText);
+    onChange(html, el.innerText, event?.type === "harfsaz-format");
   }
 
   // Phonetic transliteration must use a NATIVE `beforeinput` listener: React's
@@ -162,9 +168,11 @@ export function RichEditor({
       emit();
     }
 
+    el.addEventListener("harfsaz-format", emit);
     el.addEventListener("beforeinput", onBeforeInput);
     el.addEventListener("paste", onPaste);
     return () => {
+      el.removeEventListener("harfsaz-format", emit);
       el.removeEventListener("beforeinput", onBeforeInput);
       el.removeEventListener("paste", onPaste);
     };
@@ -175,7 +183,11 @@ export function RichEditor({
     <div
       ref={ref}
       className="text-frame-edit"
-      contentEditable
+      data-frame-id={frameId}
+      contentEditable={!readOnly}
+      role={readOnly ? undefined : "textbox"}
+      aria-label={readOnly ? undefined : "Document text"}
+      aria-multiline={readOnly ? undefined : true}
       suppressContentEditableWarning
       dir={dir}
       lang={lang}

@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { TextFrame, useDoc } from "../lib/store";
 import { GlyphRenderer } from "./GlyphRenderer";
 import { SuggestionLayer } from "./SuggestionLayer";
+import { needsRichLayout } from "./paragraphs";
 import { RichEditor } from "./RichEditor";
 import { ResizeHandles } from "./ResizeHandles";
 import { useFrameTransform } from "./useFrameTransform";
@@ -56,8 +57,8 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
   }, [frame.fontKey]);
 
   // Rich editor change: store both the HTML (rich) and plain text (AI/count).
-  function handleRichChange(html: string, text: string) {
-    updateFrame(pageId, frame.id, { html, text });
+  function handleRichChange(html: string, text: string, checkpoint = false) {
+    updateFrame(pageId, frame.id, { html, text }, checkpoint);
   }
 
   // Computed text style applied to the editor/preview text.
@@ -71,6 +72,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
   // In preview mode the frame-level align is the default. RTL means the natural
   // default is right-aligned without setting text-align.
   const textStyle: React.CSSProperties = {
+    textAlign: frame.align,
     fontSize: frame.fontSize,
     fontFamily,
     fontWeight: frame.bold ? 700 : 400,
@@ -98,7 +100,7 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           top: frame.y,
           width: frame.width,
           height: frame.height,
-          border: frame.borderWidth
+          border: frame.kind === "shape" ? "none" : frame.borderWidth
             ? `${frame.borderWidth}px solid ${frame.borderColor}`
             : undefined,
           cursor: "move",
@@ -167,8 +169,10 @@ export function TextFrameView({ pageId, frame }: { pageId: string; frame: TextFr
           fontFamily={fontFamily}
           onApply={applyCorrection}
         />
-      ) : mode === "edit" ? (
+      ) : mode === "edit" || needsRichLayout(frame.html) ? (
         <RichEditor
+          frameId={frame.id}
+          readOnly={mode === "preview"}
           html={frame.html}
           fallbackText={frame.text}
           phonetic={phonetic}

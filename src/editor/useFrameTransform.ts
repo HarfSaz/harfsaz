@@ -31,7 +31,10 @@ export function useFrameTransform(pageId: string, frameId: string) {
 
   function begin(e: React.PointerEvent, handle?: Handle) {
     const fr = current(pageId, frameId);
-    if (!fr) return;
+    if (!fr || e.button !== 0) return;
+    // Pointer cancellation suppresses the later mousedown; select here first.
+    useDoc.getState().setActivePage(pageId);
+    useDoc.getState().selectFrame(frameId);
     e.preventDefault();
     e.stopPropagation();
     start.current = { px: e.clientX, py: e.clientY, x: fr.x, y: fr.y, w: fr.width, h: fr.height, handle };

@@ -1,5 +1,6 @@
 // Workspace UI state (panel visibility, zoom) — separate from the document model.
 import { create } from "zustand";
+import { useDoc } from "./store";
 
 interface UiState {
   aiPanelOpen: boolean;
@@ -38,7 +39,7 @@ interface UiState {
 const clampZoom = (z: number) => Math.max(0.25, Math.min(2, Math.round(z * 100) / 100));
 
 export const useUi = create<UiState>((set) => ({
-  aiPanelOpen: true,
+  aiPanelOpen: false,
   objectBarOpen: false,
   zoom: 1,
   viewMode: "edit",
@@ -61,5 +62,14 @@ export const useUi = create<UiState>((set) => ({
   setZoom: (z) => set({ zoom: clampZoom(z) }),
   zoomIn: () => set((s) => ({ zoom: clampZoom(s.zoom + 0.1) })),
   zoomOut: () => set((s) => ({ zoom: clampZoom(s.zoom - 0.1) })),
-  fitZoom: () => set({ zoom: 0.65 }),
+  fitZoom: () => {
+    const canvas = document.getElementById("document-canvas");
+    const doc = useDoc.getState();
+    const page = doc.pages.find((p) => p.id === doc.activePageId) ?? doc.pages[0];
+    if (!canvas || !page) return;
+    const availableWidth = Math.max(1, canvas.clientWidth - 80);
+    const availableHeight = Math.max(1, canvas.clientHeight - 100);
+    const fitted = Math.min(availableWidth / page.width, availableHeight / page.height);
+    set({ zoom: clampZoom(Math.floor(fitted * 100) / 100) });
+  },
 }));

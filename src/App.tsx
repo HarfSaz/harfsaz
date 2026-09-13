@@ -1,5 +1,6 @@
-import { CollapseRight as PanelRightClose, Sparkles } from "./components/ui/icons";
+import { CollapseRight as PanelRightClose } from "./components/ui/icons";
 import { MenuBar } from "./components/MenuBar";
+import { ParagraphBar } from "./components/ParagraphBar";
 import { Toolbar } from "./components/Toolbar";
 import { ObjectBar } from "./components/ObjectBar";
 import { StatusBar } from "./components/StatusBar";
@@ -15,8 +16,7 @@ import { KeyboardHelp } from "./components/KeyboardHelp";
 import { SelectionMenu } from "./editor/SelectionMenu";
 import { PageCanvas } from "./editor/PageCanvas";
 import { AiPanel } from "./components/AiPanel";
-import { TooltipProvider, IconTip } from "./components/ui/tooltip";
-import { Button } from "./components/ui/button";
+import { TooltipProvider } from "./components/ui/tooltip";
 import { useDoc, useSelectedFrame } from "./lib/store";
 import { useUi } from "./lib/ui";
 import { useShortcuts } from "./lib/shortcuts";
@@ -36,9 +36,11 @@ export function App() {
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-full flex-col" dir="ltr">
+      <div className="editor-shell flex h-full flex-col" dir="ltr">
+        <a href="#document-canvas" className="sr-only focus:not-sr-only">Skip to document</a>
         <MenuBar />
         <Toolbar />
+        <ParagraphBar />
         {showObjectBar && <ObjectBar />}
         <FindReplace />
 
@@ -48,35 +50,25 @@ export function App() {
           {/* Canvas column: view bar + scrollable page area */}
           <div className="relative flex min-w-0 flex-1 flex-col">
             <ViewBar />
-            <main className="relative flex-1 overflow-auto bg-paper-edge">
+            <main id="document-canvas" tabIndex={-1} aria-label="Document canvas" className="canvas-workspace relative flex-1 overflow-auto bg-paper-edge">
               <CanvasStage pages={pages} />
 
-              {/* Floating AI toggle when the panel is collapsed */}
-              {!aiOpen && (
-                <div className="absolute right-3 top-3 z-10">
-                  <IconTip label="Open AI panel">
-                    <Button variant="primary" size="icon" onClick={toggleAi}>
-                      <Sparkles size={18} />
-                    </Button>
-                  </IconTip>
-                </div>
-              )}
             </main>
           </div>
 
           {/* Collapsible AI panel */}
-          {aiOpen && (
-            <div className="relative flex w-[340px] flex-shrink-0 flex-col border-l border-line bg-surface">
+          <div hidden={!aiOpen} className="assistant-host" style={{ display: aiOpen ? undefined : "none" }}>
+            <div className="relative flex h-full w-full flex-col bg-surface">
               <button
                 onClick={toggleAi}
-                title="Collapse panel"
+                title="Close writing assistant" aria-label="Close writing assistant"
                 className="absolute left-2 top-2.5 z-10 rounded-md p-1 text-ink-soft hover:bg-paper-edge"
               >
                 <PanelRightClose size={18} />
               </button>
               <AiPanel />
             </div>
-          )}
+          </div>
         </div>
 
         <StatusBar />
@@ -94,12 +86,11 @@ export function App() {
 /** Renders ALL pages stacked vertically (continuous document), zoomable. */
 function CanvasStage({ pages }: { pages: ReturnType<typeof useDoc.getState>["pages"] }) {
   const zoom = useUi((s) => s.zoom);
-  const activePageId = useDoc((s) => s.activePageId);
   const setActivePage = useDoc((s) => s.setActivePage);
   const pageW = pages[0]?.width ?? 794;
 
   return (
-    <div className="flex w-full flex-col items-center gap-0 px-4 py-4">
+    <div className="canvas-stage flex min-w-full w-max flex-col items-center gap-0 px-8 py-6">
       <div style={{ width: pageW * zoom }}>
         <Ruler pageWidth={pageW} />
       </div>
@@ -108,7 +99,7 @@ function CanvasStage({ pages }: { pages: ReturnType<typeof useDoc.getState>["pag
         <div key={page.id} className="flex flex-col items-center">
           <div
             style={{ width: page.width * zoom, height: page.height * zoom }}
-            className={`mt-4 ${page.id === activePageId ? "ring-2 ring-accent/40" : ""}`}
+            className="mt-3"
             onMouseDown={() => setActivePage(page.id)}
           >
             <div

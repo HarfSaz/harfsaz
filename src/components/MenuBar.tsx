@@ -15,6 +15,7 @@ import {
 } from "../lib/documents";
 import { applyFormat } from "../editor/format";
 import { pickImageFile, fitWithin } from "../lib/image";
+import { WebAccount } from "./WebAccount";
 
 /** Classic menu bar (File / Edit / View / Insert / Format / AI) + brand. */
 export function MenuBar() {
@@ -31,6 +32,7 @@ export function MenuBar() {
   const fileName = useDoc((s) => s.fileName);
   const dirty = useDoc((s) => s.dirty);
   const sel = useSelectedFrame();
+  const aiOpen = useUi((s) => s.aiPanelOpen);
   const toggleAi = useUi((s) => s.toggleAiPanel);
   const toggleObjectBar = useUi((s) => s.toggleObjectBar);
   const setPrintOpen = useUi((s) => s.setPrintOpen);
@@ -78,12 +80,12 @@ export function MenuBar() {
   };
 
   return (
-    <header className="flex items-center justify-between border-b border-line bg-paper/80 px-3 py-1.5 backdrop-blur">
-      <div className="flex items-center gap-0.5">
+    <header className="editor-header flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3">
+      <div className="editor-menus flex min-w-0 items-center gap-0.5">
         {/* Brand (logo) + current file name */}
-        <span className="mr-3 flex items-center gap-2.5 border-r border-line/70 pr-3">
-          <img src="/logo.png" alt="Harfsaz" className="h-[18px] w-auto" />
-          <span className="flex items-center gap-1 text-xs text-ink-soft">
+        <span className="document-brand mr-4 flex shrink-0 items-center gap-3 border-r border-line pr-5">
+          <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Harfsaz" className="h-[22px] w-auto" />
+          <span className="flex max-w-40 items-center gap-2 truncate text-xs font-medium text-ink-soft">
             {fileName}
             {dirty && <span className="h-1.5 w-1.5 rounded-full bg-accent/70" title="Unsaved changes" />}
           </span>
@@ -153,16 +155,14 @@ export function MenuBar() {
           ))}
         </Menu>
 
-        <Menu label="AI">
-          <MenuItem onSelect={toggleAi}>Open AI panel</MenuItem>
-          <MenuItem onSelect={() => setOcrOpen(true)}>Scan handwriting (OCR)…</MenuItem>
-        </Menu>
+
       </div>
 
       <div className="flex items-center gap-1">
         {/* Undo / Redo */}
         <IconTip label="Undo (⌘Z)">
           <button
+            aria-label="Undo"
             onClick={undo}
             disabled={!canUndo}
             className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-35"
@@ -172,6 +172,7 @@ export function MenuBar() {
         </IconTip>
         <IconTip label="Redo (⇧⌘Z)">
           <button
+            aria-label="Redo"
             onClick={redo}
             disabled={!canRedo}
             className="rounded-md p-1.5 text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-35"
@@ -182,9 +183,12 @@ export function MenuBar() {
 
         <span className="mx-1 h-5 w-px bg-line" />
 
-        <Button variant="primary" size="sm" className="gap-1.5" onClick={toggleAi}>
-          <Sparkles size={14} /> AI
+        <WebAccount />
+
+        <Button variant="ghost" size="sm" className="gap-1.5" aria-expanded={aiOpen} onClick={toggleAi}>
+          <Sparkles size={14} /> Assistant
         </Button>
+        <Button variant="primary" size="sm" onClick={() => setPrintOpen(true)}>Export / Print</Button>
       </div>
     </header>
   );

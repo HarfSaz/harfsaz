@@ -16,6 +16,9 @@
 // noted in the caller's UI.
 
 import jsPDF from "jspdf";
+import { shapePaint, shapePath } from "../editor/shapeGeometry";
+import { needsRichLayout } from "../editor/paragraphs";
+import { renderPagesToPdfFile } from "./pdf";
 import { writeFile } from "@tauri-apps/plugin-fs";
 import { tempDir, join } from "@tauri-apps/api/path";
 import { layoutText, RenderLayout } from "./tauri";
@@ -175,41 +178,24 @@ function parseColor(c: string | undefined): [number, number, number] {
 
 /** Draw a shape frame (rect/ellipse/line/…) into the PDF. */
 function drawShape(doc: jsPDF, frame: TextFrame): void {
-  const x = frame.x * PX_TO_PT;
-  const y = frame.y * PX_TO_PT;
-  const w = frame.width * PX_TO_PT;
-  const h = frame.height * PX_TO_PT;
-
-  const hasFill = !!frame.fill && frame.fill !== "transparent";
-  const hasStroke = frame.borderWidth > 0;
+  const kind = frame.shape ?? "rect";
+  const paint = shapePaint(kind, frame.fill, frame.borderWidth, frame.borderColor);
+  const hasFill = paint.fill !== "none";
+  const hasStroke = paint.strokeWidth > 0 && paint.stroke !== "transparent" && paint.stroke !== "none";
   if (!hasFill && !hasStroke) return;
-
-  if (hasFill) doc.setFillColor(...parseColor(frame.fill));
+  doc.saveGraphicsState();
+  if (hasFill) doc.setFillColor(...parseColor(paint.fill));
   if (hasStroke) {
-    doc.setDrawColor(...parseColor(frame.borderColor));
-    doc.setLineWidth(frame.borderWidth * PX_TO_PT);
+    doc.setDrawColor(...parseColor(paint.stroke));
+    doc.setLineWidth(paint.strokeWidth * PX_TO_PT);
+    doc.setLineCap("round");
+    doc.setLineJoin("round");
   }
-  const style = hasFill && hasStroke ? "FD" : hasFill ? "F" : "S";
-
-  switch (frame.shape) {
-    case "ellipse":
-      doc.ellipse(x + w / 2, y + h / 2, w / 2, h / 2, style);
-      break;
-    case "line":
-      doc.setDrawColor(...parseColor(hasFill ? frame.fill : frame.borderColor));
-      doc.setLineWidth(Math.max(frame.borderWidth, 1) * PX_TO_PT);
-      doc.line(x, y + h / 2, x + w, y + h / 2);
-      break;
-    case "rounded":
-      doc.roundedRect(x, y, w, h, 6 * PX_TO_PT, 6 * PX_TO_PT, style);
-      break;
-    case "triangle":
-      doc.triangle(x + w / 2, y, x, y + h, x + w, y + h, style);
-      break;
-    default:
-      doc.rect(x, y, w, h, style);
-      break;
-  }
+  drawGlyphPath(doc, shapePath(kind, frame.width, frame.height, paint.strokeWidth), frame.x * PX_TO_PT, frame.y * PX_TO_PT);
+  if (hasFill && hasStroke) doc.fillStroke();
+  else if (hasFill) doc.fill();
+  else doc.stroke();
+  doc.restoreGraphicsState();
 }
 
 /** Draw an image frame from its data URL. */
@@ -300,6 +286,11 @@ export async function renderPagesToVectorPdf(): Promise<string> {
   if (pages.length === 0) throw new Error("No pages to export.");
 
   const first = pages[0];
+  // Preserve styled paragraphs/lists instead of flattening them into plain text.
+  if (pages.some((page) => page.pageNumber || page.frames.some((frame) => needsRichLayout(frame.html)))) {
+    return renderPagesToPdfFile({ pageWidthPx: first.width, pageHeightPx: first.height,
+      orientation: first.width > first.height ? "landscape" : "portrait" });
+  }
   const wPt = first.width * PX_TO_PT;
   const hPt = first.height * PX_TO_PT;
 

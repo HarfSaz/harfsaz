@@ -1,10 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import { aiTransform, TransformAction, isTauri } from "../lib/tauri";
+import { aiTransform, TransformAction } from "../lib/tauri";
+import { installSelectionMenuEvents } from "./selectionMenuEvents";
 import { useUi } from "../lib/ui";
 
 type Anchor = { x: number; y: number };
 
 interface ActiveSel {
+  host: HTMLElement;
   range: Range;
   text: string;
   anchor: Anchor;
@@ -38,6 +40,7 @@ export function SelectionMenu() {
   const [error, setError] = useState<string | null>(null);
   const [custom, setCustom] = useState("");
   const [showCustom, setShowCustom] = useState(false);
+  const dismissRef = useRef<() => void>(() => {});
   const cardRef = useRef<HTMLDivElement>(null);
   const setUpgradeOpen = useUi((s) => s.setUpgradeOpen);
 
@@ -50,60 +53,32 @@ export function SelectionMenu() {
       ".text-frame-edit"
     ) ||
       (range.commonAncestorContainer as HTMLElement).closest?.(".text-frame-edit");
-    if (!host) return null;
+    if (!host || host.getAttribute("contenteditable") !== "true") return null;
     const text = s.toString().trim();
     if (!text) return null;
     const rect = range.getBoundingClientRect();
     const lang = (host as HTMLElement).getAttribute("lang") || "ur";
-    return { range: range.cloneRange(), text, anchor: { x: rect.left + rect.width / 2, y: rect.top }, lang };
+    return { host: host as HTMLElement, range: range.cloneRange(), text, anchor: { x: rect.left + rect.width / 2, y: rect.top }, lang };
   }
 
-  // Show the menu on selection (mouseup) and on right-click.
   useEffect(() => {
-    function onMouseUp(e: MouseEvent) {
-      // Ignore clicks inside our own card.
-      if (cardRef.current?.contains(e.target as Node)) return;
-      const captured = captureSelection();
-      if (captured) {
-        setSel(captured);
+    const events = installSelectionMenuEvents({
+      capture: captureSelection,
+      card: () => cardRef.current,
+      close: () => setSel(null),
+      open: (captured, contextEvent) => {
+        setSel(contextEvent ? { ...captured, anchor: { x: contextEvent.clientX, y: contextEvent.clientY } } : captured);
         setResult(null);
         setError(null);
         setShowCustom(false);
-      } else {
-        setSel(null);
-      }
-    }
-    function onContextMenu(e: MouseEvent) {
-      const host = (e.target as HTMLElement).closest?.(".text-frame-edit");
-      if (!host) return; // let the OS menu show outside editors
-      e.preventDefault(); // suppress the browser default menu
-      const captured = captureSelection();
-      if (captured) {
-        setSel({ ...captured, anchor: { x: e.clientX, y: e.clientY } });
-        setResult(null);
-        setError(null);
-        setShowCustom(false);
-      }
-    }
-    function onKeyDown(e: KeyboardEvent) {
-      if (e.key === "Escape") setSel(null);
-    }
-    document.addEventListener("mouseup", onMouseUp);
-    document.addEventListener("contextmenu", onContextMenu);
-    document.addEventListener("keydown", onKeyDown);
-    return () => {
-      document.removeEventListener("mouseup", onMouseUp);
-      document.removeEventListener("contextmenu", onContextMenu);
-      document.removeEventListener("keydown", onKeyDown);
-    };
+      },
+    });
+    dismissRef.current = events.dismiss;
+    return events.dispose;
   }, []);
 
   async function run(action: TransformAction, replaces: boolean, instruction?: string) {
     if (!sel) return;
-    if (!isTauri()) {
-      setError("AI runs in the desktop app.");
-      return;
-    }
     setBusy(action);
     setError(null);
     setResult(null);
@@ -142,7 +117,9 @@ export function SelectionMenu() {
         <span className="text-[11px] font-semibold uppercase tracking-wide text-ink-soft">
           ✦ AI · {sel.text.length} chars
         </span>
-        <button className="text-ink-soft hover:text-ink" onClick={() => setSel(null)}>✕</button>
+        <button aria-label="Close selection actions" className="text-ink-soft hover:text-ink"
+          onMouseDown={(e) => e.preventDefault()}
+          onClick={() => dismissRef.current()}>✕</button>
       </div>
 
       {result !== null ? (

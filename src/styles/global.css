@@ -1,24 +1,24 @@
 /* Harfsaz — editorial "ink on paper" aesthetic for an Urdu calligraphy tool.
    Noto Nastaliq Urdu gives correct Nastaliq shaping in the contenteditable layer. */
-@import url("https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Inter:wght@400;500;600&display=swap");
+@import url("https://fonts.googleapis.com/css2?family=Noto+Nastaliq+Urdu:wght@400;600;700&family=Manrope:wght@400;500;600;700&display=swap");
 
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
 
 :root {
-  --ink: #1a1714;
-  --ink-soft: #534b42;
-  --paper: #fbf8f3;
+  --ink: #262722;
+  --ink-soft: #68685f;
+  --paper: #f8f7f3;
   --paper-edge: #efe9df;
   --surface: #ffffff;
-  --line: #e3dccf;
-  --accent: #9a6b3f;        /* warm sepia ink brown */
+  --line: #e4e2da;
+  --accent: #87633e;        /* warm sepia ink brown */
   --accent-deep: #6f4a26;
   --danger: #b4452f;
   --shadow: 0 6px 28px rgba(40, 30, 18, 0.12);
   --nastaliq: "Noto Nastaliq Urdu", serif;
-  --ui: "Inter", system-ui, sans-serif;
+  --ui: "Manrope", system-ui, sans-serif;
 }
 
 * { box-sizing: border-box; }
@@ -65,6 +65,8 @@ body {
 .toolbar-actions { display: flex; align-items: center; gap: 10px; }
 .toolbar-actions .divider { width: 1px; height: 24px; background: var(--line); }
 
+@layer base {
+
 button {
   font-family: var(--ui);
   font-size: 13px;
@@ -81,6 +83,8 @@ button:hover:not(:disabled) {
   color: var(--accent-deep);
 }
 button:disabled { opacity: 0.45; cursor: not-allowed; }
+
+}
 
 .font-size { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--ink-soft); }
 .font-size input {
@@ -272,3 +276,82 @@ body.harfsaz-exporting .text-frame.selected {
   display: flex; gap: 8px; padding: 8px 10px;
   border-top: 1px solid var(--line); background: var(--surface);
 }
+
+/* Refined writing workspace. Chrome stays quiet; the page carries the ink. */
+.editor-header, .format-toolbar { z-index: 10; }
+.editor-header { min-height: 60px; }
+.editor-header button:not(.bg-accent), .tool-rail button, .editor-status button,
+.view-bar button, .format-toolbar button:not([role="combobox"]):not([data-active="true"]) {
+  border-color: transparent;
+  background-color: transparent;
+}
+.editor-header .menu-trigger { font-size: 12px; font-weight: 500; }
+.format-toolbar { scrollbar-width: thin; }
+.format-toolbar > div { flex-shrink: 0; }
+.format-toolbar input { font-size: 12px; }
+.tool-rail { gap: 8px; }
+.tool-rail > button, .tool-rail > div > button { min-height: 56px; }
+.tool-rail button[data-active="true"] { background: #eee5d9; color: var(--accent-deep); }
+.canvas-workspace { background: #e9e7e2; scrollbar-gutter: stable; }
+.view-bar { background: #e9e7e2; }
+.view-switch { background: #dedcd6; }
+.view-switch button { padding: 5px 12px; font-size: 11px; border-radius: 4px; }
+.view-switch button[data-active="true"] { background: var(--surface); box-shadow: 0 1px 3px #29231b14; }
+.input-mode { padding: 5px 8px; }
+.page { box-shadow: 0 2px 5px #24201a0a, 0 18px 50px #24201a12; border: 1px solid #d8d5ce; border-radius: 0; }
+.margin-guide { border-color: #9a8b7326; }
+.assistant-host { width: 344px; flex-shrink: 0; border-left: 1px solid var(--line); min-height: 0; }
+.ai-panel--embedded { padding: 20px; gap: 18px; }
+.ai-header h2 { font-size: 14px; font-weight: 600; letter-spacing: -.2px; }
+.ai-setup { background: var(--paper); border: 1px solid var(--line); border-radius: 10px; padding: 16px; font-size: 12px; line-height: 1.6; }
+.ai-setup strong { display: block; font-size: 13px; color: var(--ink); margin-bottom: 4px; }
+.ai-setup button { display: block; margin-top: 12px; background: var(--accent); color: white; border-color: transparent; }
+.ai-instruction { width: 100%; min-width: 0; background: var(--paper); line-height: 1.6; }
+.editor-status { min-height: 38px; font-size: 10px; }
+.editor-status button { font-size: 11px; }
+button:focus-visible, input:focus-visible, textarea:focus-visible, summary:focus-visible, [role="combobox"]:focus-visible {
+  outline: 2px solid var(--accent-deep); outline-offset: 3px;
+}
+button { transition: background-color .15s, color .15s, border-color .15s; }
+@media (max-width: 1200px) {
+  .editor-header { flex-wrap: wrap; gap: 8px; padding: 10px 16px; }
+  .editor-menus { flex: 1 1 auto; overflow-x: auto; }
+  .document-brand { margin-right: 8px; padding-right: 12px; }
+  .assistant-host { width: 300px; }
+}
+@media (max-width: 800px) {
+  .editor-header { padding: 8px 12px; }
+  .editor-menus { width: 100%; }
+  .document-brand > span { max-width: 90px; }
+  .assistant-host { position: absolute; inset: 0 0 0 auto; z-index: 30; width: min(344px, 100%); box-shadow: -12px 0 40px #24201a18; }
+  .editor-shell > .flex.min-h-0 { position: relative; }
+  .workspace-label { display: none; }
+  .view-bar { padding-inline: 12px; }
+  .tool-rail { width: 60px; }
+  .canvas-stage { padding-inline: 20px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: .01ms !important; transition-duration: .01ms !important; scroll-behavior: auto !important; }
+}
+
+.editor-header button.bg-accent:hover, .ai-setup button:hover { color: white; background: var(--accent-deep); }
+
+/* Script-neutral paragraph controls and rich text layout. */
+.paragraph-bar { display: flex; flex-shrink: 0; align-items: center; gap: 6px; padding: 7px 20px; border-bottom: 1px solid var(--line); background: var(--paper); overflow-x: auto; scrollbar-width: thin; }
+.paragraph-bar > * { flex-shrink: 0; }
+.paragraph-caption { font-size: 10px; color: var(--ink-soft); margin-inline-end: 6px; }
+.paragraph-bar button, .paragraph-bar select { min-height: 30px; padding: 4px 8px; font-size: 11px; border: 1px solid transparent; border-radius: 5px; background: transparent; white-space: nowrap; }
+.paragraph-bar select { border-color: var(--line); background: var(--surface); max-width: 160px; }
+.paragraph-bar select:disabled { opacity: .45; }
+.paragraph-bar button:hover:not(:disabled), .paragraph-bar button[aria-pressed=true] { background: #eee5d9; color: var(--accent-deep); }
+.paragraph-divider { width: 1px; height: 18px; background: var(--line); margin-inline: 4px; }
+.paragraph-dialog input { border: 1px solid var(--line); border-radius: 5px; padding: 8px; width: 100%; }
+.text-frame-edit ol, .text-frame-edit ul { padding-inline-start: 1.6em; padding-inline-end: 0; margin-block: 0; list-style-position: outside; white-space: normal; }
+.text-frame-edit ul { list-style-type: disc; }
+.text-frame-edit ol { list-style-type: decimal; }
+.text-frame-edit li { white-space: pre-wrap; }
+.text-frame-edit li::marker { font-variant-numeric: tabular-nums; }
+.text-frame-edit [data-harfsaz-style] { white-space: pre-wrap; }
+
+/* Color actions must remain identifiable among quiet toolbar icon buttons. */
+.format-toolbar button.color-trigger { border-color: var(--line); background: var(--surface); }

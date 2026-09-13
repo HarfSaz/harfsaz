@@ -1,3 +1,4 @@
+import { needsRichLayout } from "../editor/paragraphs";
 import { useEffect, useState } from "react";
 import * as Dialog from "@radix-ui/react-dialog";
 import { XMark, Export } from "./ui/icons";
@@ -41,7 +42,9 @@ export function PrintDialog() {
   // Vector = real glyph outlines from the Rust shaper (resolution-independent,
   // what printers want). Raster = html2canvas screenshot; keeps the on-screen
   // look exactly but is a lossy image.
-  const [quality, setQuality] = useState<"vector" | "raster">("vector");
+  const richLayout = useDoc((s) => s.pages.some((p) => p.pageNumber || p.frames.some((f) => needsRichLayout(f.html))));
+  // Vector rendering needs the Rust shaper, so the browser build is image-only.
+  const [quality, setQuality] = useState<"vector" | "raster">(isTauri() ? "vector" : "raster");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [status, setStatus] = useState<string | null>(null);
@@ -84,7 +87,11 @@ export function PrintDialog() {
     setStatus(null);
     try {
       if (!isTauri()) {
-        window.print();
+        // Browser: render and download; there is no save dialog or temp file.
+        setStatus("Rendering PDF…");
+        const name = await renderPdf();
+        setStatus(`Downloaded ✓ ${name}`);
+        setTimeout(() => setOpen(false), 1400);
         return;
       }
       setStatus("Rendering PDF…");
@@ -263,6 +270,7 @@ export function PrintDialog() {
             </Field>
           </div>
 
+          {richLayout && <p className="px-5 py-3 text-xs text-ink-soft" role="status">This document uses rich formatting, tables or page numbers. PDF export preserves their appearance as high-resolution images, including when Vector is selected.</p>}
           {/* Output quality */}
           <div className="border-t border-line px-5 py-3">
             <div className="flex items-start gap-4">
@@ -272,13 +280,15 @@ export function PrintDialog() {
                   name="pdf-quality"
                   checked={quality === "vector"}
                   onChange={() => setQuality("vector")}
+                  disabled={!isTauri()}
                   className="mt-0.5 accent-accent"
                 />
-                <span>
+                <span className={isTauri() ? "" : "opacity-60"}>
                   <span className="font-medium text-ink">Vector (print-grade)</span>
                   <span className="block text-ink-soft">
-                    True glyph outlines from the Nastaliq shaper — sharp at any
-                    size, small file. Best for printing and publishers.
+                    {isTauri()
+                      ? "True glyph outlines from the Nastaliq shaper — sharp at any size, small file. Best for printing and publishers."
+                      : "Needs the desktop app — its Rust shaper writes true glyph outlines. The browser exports an image PDF."}
                   </span>
                 </span>
               </label>

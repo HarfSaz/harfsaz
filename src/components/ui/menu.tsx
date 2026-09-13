@@ -13,7 +13,7 @@ export function Menu({
   return (
     <DropdownMenu.Root>
       <DropdownMenu.Trigger asChild>
-        <button className="rounded-lg px-3 py-1.5 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-paper-edge hover:text-ink data-[state=open]:bg-paper-edge data-[state=open]:text-ink">
+        <button className="menu-trigger rounded-md px-2.5 py-1.5 text-[13px] font-medium text-ink-soft outline-none transition-colors hover:bg-paper-edge hover:text-ink data-[state=open]:bg-paper-edge data-[state=open]:text-ink">
           {label}
         </button>
       </DropdownMenu.Trigger>

@@ -35,7 +35,7 @@ export function StatusBar() {
     .reduce((sum, t) => sum + t.split(/\s+/).length, 0);
 
   return (
-    <footer className="flex items-center justify-between border-t border-line bg-paper px-4 py-1 text-[11px] text-ink-soft">
+    <footer className="editor-status flex shrink-0 items-center justify-between gap-4 overflow-x-auto whitespace-nowrap border-t border-line bg-paper px-4 py-1 text-[11px] text-ink-soft">
       <div className="flex items-center gap-4">
         <SaveStatus
           dirty={dirty}
@@ -48,7 +48,7 @@ export function StatusBar() {
           title="Show keyboard layout reference"
           className="rounded px-1 hover:bg-paper-edge"
         >
-          ⌨ Keyboard:{" "}
+          ⌨ {" "}
           <span className="font-medium text-ink">
             {lang.nativeLabel} {lang.label}
           </span>
@@ -68,7 +68,7 @@ export function StatusBar() {
           title="Toggle frame bar"
           className="flex items-center gap-1 rounded px-1.5 py-0.5 hover:bg-paper-edge"
         >
-          <Frame size={13} /> Frame bar
+          <Frame size={13} /> Layout controls
         </button>
       </div>
 
@@ -76,7 +76,7 @@ export function StatusBar() {
         <span>
           Page <span className="font-medium text-ink">{activeIndex + 1}</span> / {pages.length}
         </span>
-        <span>A4</span>
+        <span>{Math.round(pages[activeIndex].width)} × {Math.round(pages[activeIndex].height)} px</span>
 
         {/* Zoom controls */}
         <div className="flex items-center gap-0.5">
@@ -137,7 +137,7 @@ function SaveStatus({
       {dirty ? (
         <span className="text-ink-soft"> · unsaved changes</span>
       ) : (
-        <span className="text-ink-soft"> · saved</span>
+        <span className="text-ink-soft">{hasPath ? " · saved" : " · not yet saved"}</span>
       )}
     </span>
   );

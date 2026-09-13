@@ -1,4 +1,5 @@
-import { Frame as Square, Move, Resize } from "./ui/icons";
+import { SHAPES, isOpenShape, shapePaint, ShapeKind } from "../editor/shapeGeometry";
+import { Move, Resize } from "./ui/icons";
 import { useDoc, useSelectedFrame, TextFrame } from "../lib/store";
 import { Separator } from "./ui/separator";
 import { ColorButton } from "./ui/colorpicker";
@@ -13,6 +14,10 @@ export function ObjectBar() {
   const f = sel?.frame;
   const dis = !sel;
   const isImage = f?.kind === "image";
+  const isShape = f?.kind === "shape";
+  const openShape = isShape && isOpenShape(f.shape ?? "rect");
+  const paint = f ? shapePaint(f.shape ?? "rect", f.fill, f.borderWidth, f.borderColor) : null;
+  const addFrameAt = useDoc((s) => s.addFrameAt);
 
   const patch = (p: Partial<TextFrame>) =>
     sel && updateFrame(sel.page.id, sel.frame.id, p);
@@ -27,6 +32,24 @@ export function ObjectBar() {
       <span className="font-semibold uppercase tracking-wider">
         {f?.kind === "image" ? "Image" : f?.kind === "shape" ? "Shape" : "Frame"}
       </span>
+
+      {isShape && f && <>
+        <select aria-label="Shape type" value={f.shape ?? "rect"}
+          className="h-8 rounded-md border border-line bg-paper px-2 text-xs"
+          onChange={(e) => {
+            const shape = e.target.value as ShapeKind;
+            patch({ shape, ...(isOpenShape(shape) && !f.borderWidth ? { borderWidth: 3, borderColor: f.fill === "transparent" ? "#87633e" : f.fill } : {}) });
+          }}>
+          {SHAPES.map((s) => <option key={s.kind} value={s.kind}>{s.label}</option>)}
+        </select>
+        <button className="rounded-md px-2 py-1 text-xs hover:bg-paper-edge" onClick={() => {
+          if (!sel) return;
+          const { id: _id, ...copy } = f;
+          addFrameAt(sel.page.id, "shape", { x: Math.min(f.x + 20, Math.max(0, sel.page.width - f.width)),
+            y: Math.min(f.y + 20, Math.max(0, sel.page.height - f.height)), width: f.width, height: f.height },
+            { ...copy, x: Math.min(f.x + 20, Math.max(0, sel.page.width - f.width)), y: Math.min(f.y + 20, Math.max(0, sel.page.height - f.height)) });
+        }}>Duplicate</button>
+      </>}
 
       {/* Image controls */}
       {isImage && (
@@ -55,25 +78,25 @@ export function ObjectBar() {
         </>
       )}
 
-      {/* Fill */}
-      <IconTip label="Fill color">
-        <span className="flex items-center gap-1">
-          <Square size={13} />
-          <ColorButton value={f?.fill ?? "transparent"} disabled={dis} title="Fill" onChange={(v) => patch({ fill: v })} />
-        </span>
-      </IconTip>
+      {!openShape && <ColorButton value={f?.fill ?? "transparent"} disabled={dis}
+        title={isShape ? "Fill color" : "Background color"} allowTransparent
+        onChange={(v) => patch({ fill: v,
+          ...(isShape && v === "transparent" && !f?.borderWidth ? { borderWidth: 2, borderColor: f?.fill === "transparent" ? "#87633e" : f?.fill ?? "#87633e" } : {}) })} />}
 
       {/* Border */}
-      <IconTip label="Border">
+      <IconTip label={isShape ? "Shape outline" : "Border"}>
         <span className="flex items-center gap-1">
-          <ColorButton value={f?.borderColor ?? "#e3dccf"} disabled={dis} title="Border color" onChange={(v) => patch({ borderColor: v })} />
+          <ColorButton value={openShape ? paint?.stroke ?? "#87633e" : f?.borderColor ?? "#e3dccf"} disabled={dis} title={isShape ? "Outline color" : "Border color"}
+            onChange={(v) => patch({ borderColor: v, borderWidth: openShape ? paint?.strokeWidth ?? 3 : Math.max(1, f?.borderWidth ?? 0) })} />
           <input
             type="number"
-            min={0}
+            aria-label={isShape ? "Stroke width" : "Border width"}
+            min={openShape ? 1 : 0}
             max={20}
-            value={f?.borderWidth ?? 0}
+            value={openShape ? paint?.strokeWidth ?? 3 : f?.borderWidth ?? 0}
             disabled={dis}
-            onChange={(e) => patch({ borderWidth: Number(e.target.value) || 0 })}
+            onChange={(e) => patch({ borderWidth: Math.max(openShape ? 1 : 0, Math.min(20, Number(e.target.value) || 0)),
+              ...(openShape && !f?.borderWidth ? { borderColor: paint?.stroke ?? "#87633e" } : {}) })}
             className="w-12 rounded-md border border-line bg-transparent px-1 py-1 text-center text-ink outline-none disabled:opacity-45"
           />
         </span>

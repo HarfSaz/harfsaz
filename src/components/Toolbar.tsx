@@ -1,3 +1,5 @@
+import { useEffect, useRef, useState } from "react";
+import { captureColorSelection, applySelectionColor, ColorSelection } from "../editor/selectionColor";
 import { useDoc, useSelectedFrame, TextFrame } from "../lib/store";
 import { IconTip } from "./ui/tooltip";
 import { Select, SelectOption } from "./ui/select";
@@ -43,7 +45,7 @@ export function Toolbar() {
   const sel = useSelectedFrame();
   const updateFrame = useDoc((s) => s.updateFrame);
   const f = sel?.frame;
-  const dis = !sel;
+  const dis = !sel || (f?.kind !== undefined && f.kind !== "text");
 
   const patch = (p: Partial<TextFrame>) => sel && updateFrame(sel.page.id, sel.frame.id, p);
   const setSize = (n: number) => patch({ fontSize: Math.max(8, Math.min(400, n)) });
@@ -67,9 +69,26 @@ export function Toolbar() {
     }
   };
 
+  const colorSelection = useRef<ColorSelection | null>(null);
+  const [selectedColor, setSelectedColor] = useState<string | null>(null);
+  useEffect(() => {
+    setSelectedColor(null);
+    const track = () => {
+      const target = f ? captureColorSelection(f.id) : null;
+      if (!target) return;
+      const node = target.range.startContainer;
+      const element = node.nodeType === Node.ELEMENT_NODE ? node as HTMLElement : node.parentElement;
+      if (element) setSelectedColor(window.getComputedStyle(element).color);
+    };
+    document.addEventListener("selectionchange", track);
+    return () => document.removeEventListener("selectionchange", track);
+  }, [f?.id, f?.color]);
   const colorCmd = (value: string) => {
-    if (hasSelection()) applyFormat("foreColor", value);
+    if (colorSelection.current) {
+      if (applySelectionColor(colorSelection.current, value)) setSelectedColor(value);
+    }
     else patch({ color: value });
+    colorSelection.current = null;
   };
 
   // Alignment is always per-paragraph in the rich editor (the caret's line);
@@ -84,7 +103,7 @@ export function Toolbar() {
   const keepSelection = (e: React.MouseEvent) => e.preventDefault();
 
   return (
-    <div className="flex items-center gap-2 overflow-x-auto border-b border-line bg-surface px-4 py-2">
+    <div aria-label="Text formatting" className="format-toolbar flex shrink-0 items-center gap-3 overflow-x-auto border-b border-line bg-surface px-5 py-3">
       {/* Language / keyboard */}
       <Group label="Language">
         <Select
@@ -111,9 +130,10 @@ export function Toolbar() {
 
       {/* Size */}
       <Group label="Size">
-        <div className="flex h-8 items-center rounded-lg border border-line bg-paper/60 shadow-sm">
+        <div className="flex h-8 items-center rounded-lg border border-line bg-paper/60">
           <button
             disabled={dis}
+            aria-label="Decrease font size"
             onClick={() => setSize((f?.fontSize ?? 32) - 2)}
             className="flex h-full w-7 items-center justify-center rounded-l-lg text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-45"
           >
@@ -121,6 +141,7 @@ export function Toolbar() {
           </button>
           <input
             type="number"
+            aria-label="Font size"
             value={f?.fontSize ?? 32}
             disabled={dis}
             onChange={(e) => setSize(Number(e.target.value) || 32)}
@@ -128,12 +149,18 @@ export function Toolbar() {
           />
           <button
             disabled={dis}
+            aria-label="Increase font size"
             onClick={() => setSize((f?.fontSize ?? 32) + 2)}
             className="flex h-full w-7 items-center justify-center rounded-r-lg text-ink-soft transition-colors hover:bg-paper-edge hover:text-ink disabled:opacity-45"
           >
             <Plus size={14} />
           </button>
         </div>
+      </Group>
+
+      <Group label="Color">
+        <ColorButton value={selectedColor ?? f?.color ?? "#262722"} disabled={dis} title="Text color"
+          onOpen={() => { colorSelection.current = f ? captureColorSelection(f.id) : null; }} onChange={colorCmd} />
       </Group>
 
       <Divider />
@@ -149,12 +176,7 @@ export function Toolbar() {
         <Toggle active={!!f?.underline} disabled={dis} tip="Underline" onClick={() => styleCmd("underline", "underline")}>
           <TypeGlyph letter="U" underline />
         </Toggle>
-        <span className="mx-0.5 h-5 w-px self-center bg-line" />
-        <span onMouseDown={keepSelection} className="flex items-center">
-          <IconTip label="Text color (selection or frame)">
-            <ColorButton value={f?.color ?? "#1a1714"} disabled={dis} title="Text color" onChange={colorCmd} />
-          </IconTip>
-        </span>
+
       </Segment>
 
       {/* Alignment — applies to the current paragraph(s), not the whole frame */}
@@ -163,6 +185,7 @@ export function Toolbar() {
           <IconTip key={a.v} label={a.tip}>
             <button
               disabled={dis}
+              aria-label={a.tip}
               onClick={() => alignCmd(a.v)}
               className="flex h-7 w-7 items-center justify-center rounded-md text-ink transition-colors hover:bg-paper-edge disabled:opacity-45"
             >
@@ -174,8 +197,14 @@ export function Toolbar() {
 
       <Divider />
 
+      <Group label="Text direction">
+        <Select ariaLabel="Text direction" value={f?.dir ?? "rtl"} disabled={dis}
+          onChange={(dir) => patch({ dir: dir as "rtl" | "ltr" })}
+          options={[{ value: "rtl", label: "← RTL" }, { value: "ltr", label: "LTR →" }]} className="w-[88px]" />
+      </Group>
+
       {/* Spacing */}
-      <Group label="Line">
+      <Group label="Line height">
         <Stepper
           icon={<LineHeight size={13} className="text-ink-soft" />}
           tip="Line spacing"
@@ -187,10 +216,10 @@ export function Toolbar() {
           onChange={(n) => patch({ lineHeight: n || 1.7 })}
         />
       </Group>
-      <Group label="Spacing">
+      <Group label="Letter spacing">
         <Stepper
           icon={<LetterSpacing size={13} className="text-ink-soft" />}
-          tip="Letter spacing (kashida)"
+          tip="Letter spacing in pixels"
           value={f?.letterSpacing ?? 0}
           step={0.5}
           disabled={dis}
@@ -204,8 +233,8 @@ export function Toolbar() {
 /** A labeled control: small caption above, control below — clean & airy. */
 function Group({ label, children }: { label: string; children: React.ReactNode }) {
   return (
-    <div className="flex flex-col gap-1">
-      <span className="px-0.5 text-[10px] font-medium tracking-wide text-ink-soft/70">{label}</span>
+    <div className="flex shrink-0 flex-col gap-1">
+      <span className="px-0.5 text-[10px] font-medium tracking-wide text-ink-soft">{label}</span>
       <div className="flex h-8 items-center">{children}</div>
     </div>
   );
@@ -220,7 +249,7 @@ function Segment({
   onMouseDown?: (e: React.MouseEvent) => void;
 }) {
   return (
-    <div className="mt-[18px] flex h-8 items-center gap-0.5 rounded-lg border border-line bg-paper/60 px-1 shadow-sm" onMouseDown={onMouseDown}>
+    <div className="mt-[18px] flex h-8 items-center gap-0.5 rounded-lg border border-line bg-paper/60 px-1" onMouseDown={onMouseDown}>
       {children}
     </div>
   );
@@ -252,10 +281,11 @@ function Stepper({
 }) {
   return (
     <IconTip label={tip}>
-      <div className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-paper/60 px-2.5 shadow-sm">
+      <div className="flex h-8 items-center gap-1.5 rounded-lg border border-line bg-paper/60 px-2.5">
         {icon}
         <input
           type="number"
+          aria-label={tip}
           step={step}
           min={min}
           max={max}
@@ -285,6 +315,8 @@ function Toggle({
   return (
     <IconTip label={tip}>
       <button
+        aria-label={tip}
+        aria-pressed={active}
         data-active={active}
         disabled={disabled}
         onClick={onClick}
