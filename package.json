@@ -3,10 +3,18 @@
   "private": true,
   "version": "0.1.0",
   "type": "module",
-  "description": "Harfsaz (حرف ساز) — an AI-native Urdu Nastaliq desktop publishing app",
+  "description": "Harfsaz (حرف ساز) — the first open-source, AI-native desktop editor for Nastaʿlīq & RTL scripts (Urdu · Persian · Arabic)",
+  "author": "Afzaal Muhammad <afzaal@aiinak.com>",
+  "license": "AGPL-3.0-or-later",
+  "homepage": "https://github.com/ahmad641/harfsaz",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/ahmad641/harfsaz.git"
+  },
   "scripts": {
     "dev": "vite",
     "build": "tsc && vite build",
+    "test": "node --test tests/*.test.mjs",
     "preview": "vite preview",
     "tauri": "tauri",
     "app:dev": "tauri dev",
@@ -40,6 +48,7 @@
     "@types/react-dom": "^18.3.5",
     "@vitejs/plugin-react": "^4.3.4",
     "autoprefixer": "^10.5.0",
+    "happy-dom": "^20.14.5",
     "postcss": "^8.5.15",
     "tailwindcss": "^3.4.19",
     "typescript": "^5.7.2",

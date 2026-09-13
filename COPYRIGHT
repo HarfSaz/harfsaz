@@ -1,0 +1,38 @@
+Harfsaz — AI-native Urdu/Persian/Arabic (Nastaʿlīq / RTL) desktop publishing app
+
+Copyright (C) 2024–2026 Afzaal Muhammad
+
+This program is free software: you can redistribute it and/or modify it under
+the terms of the GNU Affero General Public License as published by the Free
+Software Foundation, either version 3 of the License, or (at your option) any
+later version.
+
+This program is distributed in the hope that it will be useful, but WITHOUT ANY
+WARRANTY; without even the implied warranty of MERCHANTABILITY or FITNESS FOR A
+PARTICULAR PURPOSE. See the GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public License along
+with this program. If not, see <https://www.gnu.org/licenses/>.
+
+------------------------------------------------------------------------------
+
+COMMERCIAL / DUAL LICENSING
+
+Harfsaz is offered under the AGPL-3.0 for open-source use. The AGPL requires that
+any modified version — including one offered to users over a network — also be
+released under the AGPL.
+
+If you wish to use Harfsaz (or a modification of it) in a way that is not
+compatible with the AGPL — for example, in a closed-source or proprietary
+product — a separate commercial license is available. The copyright holder
+retains all rights to offer such licenses.
+
+Contact: afzaal@aiinak.com
+
+------------------------------------------------------------------------------
+
+THIRD-PARTY COMPONENTS
+
+This software bundles open-licensed fonts (SIL Open Font License 1.1 and Apache
+License 2.0) and uses open-source libraries. See THIRD-PARTY-NOTICES.md for the
+full attribution and license texts.

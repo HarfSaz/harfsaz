@@ -1,8 +1,10 @@
 [package]
 name = "harfsaz"
 version = "0.1.0"
-description = "Harfsaz — AI-native Urdu Nastaliq desktop publishing"
-authors = ["Afzaal Ahmad"]
+description = "Harfsaz — the first open-source, AI-native desktop editor for Nastaʿlīq & RTL scripts (Urdu · Persian · Arabic)"
+authors = ["Afzaal Muhammad <afzaal@aiinak.com>"]
+license = "AGPL-3.0-or-later"
+repository = "https://github.com/ahmad641/harfsaz"
 edition = "2021"
 rust-version = "1.77"
 
