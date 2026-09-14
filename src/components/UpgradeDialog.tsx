@@ -1,27 +1,19 @@
+import { useWorkspace } from "../lib/workspace";
 import * as Dialog from "@radix-ui/react-dialog";
 import { XMark, Sparkles, CheckAll } from "./ui/icons";
 import { useUi } from "../lib/ui";
-import { useUsage, FREE_DAILY_TOKENS } from "../lib/usage";
+import { useUsage } from "../lib/usage";
 import { isTauri } from "../lib/tauri";
-import { loginUrl, siteUrl } from "../lib/cloud";
+import { loginUrl, openAccountPage } from "../lib/cloud";
 
-/**
- * Paywall / upgrade modal. Prices and quotas mirror web/src/lib/plans.ts.
- *
- * Web editor: the buttons go to the site's pricing page (same account, Stripe
- * Checkout there). Desktop: the app cannot open a checkout itself yet, so it
- * shows the address; the free path there is "use your own key" in Settings.
- */
 export function UpgradeDialog() {
   const open = useUi((s) => s.upgradeOpen);
   const setOpen = useUi((s) => s.setUpgradeOpen);
-  const setSettingsOpen = useUi((s) => s.setSettingsOpen);
-  const plan = useUsage((s) => s.plan);
   const cloud = useUsage((s) => s.cloud);
   const remaining = useUsage((s) => s.remaining());
   const web = !isTauri();
-  const signedIn = web && !!cloud?.signedIn;
-  const onPro = web ? cloud?.plan === "pro" || cloud?.plan === "org" : plan === "pro";
+  const signedIn = !!cloud?.signedIn;
+  const onPro = cloud?.plan === "pro" || cloud?.plan === "org";
 
   const tiers = [
     {
@@ -29,9 +21,7 @@ export function UpgradeDialog() {
       price: "$0",
       cadence: "forever",
       highlight: !onPro,
-      features: web
-        ? ["20 hosted AI actions / day", "The whole editor — nothing locked", "Proofread, translate, write, OCR", "Resets daily"]
-        : [`${FREE_DAILY_TOKENS.toLocaleString()} AI tokens / day`, "All editing & fonts", "Proofread, translate, write", "Or your own API key: unlimited"],
+      features: ["20 AI actions / day", "All editing tools and fonts", "Proofread, translate, write, OCR", "No provider key needed"],
       cta: onPro ? "Included" : "Current plan",
     },
     {
@@ -44,15 +34,8 @@ export function UpgradeDialog() {
     },
   ];
 
-  const subtitle = web
-    ? !signedIn
-      ? "Sign in to use hosted AI — free, no card needed."
-      : remaining <= 0
-        ? `You've used this ${cloud?.window === "month" ? "month" : "day"}'s AI actions.`
-        : `${remaining.toLocaleString()} AI actions left ${cloud?.window === "month" ? "this month" : "today"}.`
-    : remaining <= 0
-      ? "You've used today's free AI tokens."
-      : `${remaining.toLocaleString()} free tokens left today.`;
+  const subtitle = !signedIn ? "Sign in to use Harfsaz AI — free, no card needed."
+    : `${remaining.toLocaleString()} AI actions left ${cloud?.window === "month" ? "this month" : "today"}.`;
 
   return (
     <Dialog.Root open={open} onOpenChange={setOpen}>
@@ -67,9 +50,9 @@ export function UpgradeDialog() {
               <Dialog.Title className="flex items-center gap-2 text-lg font-semibold">
                 <Sparkles size={18} /> Harfsaz AI plans
               </Dialog.Title>
-              <p className="mt-1 text-sm text-ink-soft">{subtitle}</p>
+              <Dialog.Description className="mt-1 text-sm text-ink-soft">{subtitle}</Dialog.Description>
             </div>
-            <Dialog.Close className="rounded-md p-1 text-ink-soft hover:bg-paper-edge">
+            <Dialog.Close aria-label="Close plans" className="rounded-md p-1 text-ink-soft hover:bg-paper-edge">
               <XMark size={18} />
             </Dialog.Close>
           </div>
@@ -93,26 +76,10 @@ export function UpgradeDialog() {
                   ))}
                 </ul>
                 {t.name === "Pro" && !onPro ? (
-                  web ? (
-                    <a
-                      href={signedIn ? siteUrl("/pricing") : loginUrl()}
-                      target="_blank"
-                      rel="noopener"
-                      className="mt-5 rounded-lg bg-accent px-4 py-2 text-center text-sm font-medium text-white hover:bg-accent-deep"
-                    >
-                      {signedIn ? "Upgrade to Pro" : "Sign in to start"}
-                    </a>
-                  ) : (
-                    <div className="mt-5 rounded-lg border border-accent/50 bg-accent/5 px-3 py-2 text-center text-xs text-ink-soft">
-                      Subscribe at <span className="font-semibold text-accent-deep">harfsaz.com/pricing</span>
-                      <br />
-                      or{" "}
-                      <button className="underline" onClick={() => { setOpen(false); setSettingsOpen(true); }}>
-                        use your own API key
-                      </button>{" "}
-                      — free, unlimited
-                    </div>
-                  )
+                  <button className="mt-5 rounded-lg bg-accent px-4 py-2 text-center text-sm font-medium text-white hover:bg-accent-deep"
+                    onClick={() => { if (!signedIn && web) window.open(loginUrl(), "_blank", "noopener"); else { setOpen(false); if(isTauri()) useWorkspace.getState().setSection("billing"); else void openAccountPage("pricing"); } }}>
+                    {signedIn ? "Upgrade to Pro" : "Sign in to start"}
+                  </button>
                 ) : (
                   <button disabled className="mt-5 rounded-lg border border-line px-4 py-2 text-sm font-medium text-ink opacity-60">
                     {t.cta}
@@ -123,7 +90,7 @@ export function UpgradeDialog() {
           </div>
 
           <div className="border-t border-line px-6 py-3 text-center text-xs text-ink-soft">
-            The editor is free and open source. Plans only cover hosted AI; your documents never leave your computer.
+            Plans cover Harfsaz AI on desktop and web. Text and scans you submit to AI are sent securely for processing.
           </div>
         </Dialog.Content>
       </Dialog.Portal>

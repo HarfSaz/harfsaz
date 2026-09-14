@@ -1,3 +1,7 @@
+import { SharedDocument } from "./components/SharedDocument";
+import { WebWorkspace } from "./components/WebWorkspace";
+import { DesktopWorkspace } from "./components/DesktopWorkspace";
+import { isTauri } from "./lib/tauri";
 import { CollapseRight as PanelRightClose } from "./components/ui/icons";
 import { MenuBar } from "./components/MenuBar";
 import { ParagraphBar } from "./components/ParagraphBar";
@@ -22,6 +26,12 @@ import { useUi } from "./lib/ui";
 import { useShortcuts } from "./lib/shortcuts";
 
 export function App() {
+  const share = !isTauri() ? new URLSearchParams(window.location.search).get("share") : null;
+  if (share) return <SharedDocument token={share}/>;
+  return isTauri() ? <DesktopWorkspace><Editor /></DesktopWorkspace> : <WebWorkspace><Editor /></WebWorkspace>;
+}
+
+function Editor() {
   const pages = useDoc((s) => s.pages);
   useShortcuts();
 

@@ -1,3 +1,5 @@
+import { saveDocument } from "../lib/documents";
+import { useOnlineDocuments } from "../lib/webDocuments";
 import { useEffect } from "react";
 import { isTauri } from "../lib/tauri";
 import { loginUrl, siteUrl } from "../lib/cloud";
@@ -11,6 +13,7 @@ import { useUsage } from "../lib/usage";
  * badge re-checks the session whenever this tab regains focus.
  */
 export function WebAccount() {
+  const saving = useOnlineDocuments(s => s.saving);
   const cloud = useUsage((s) => s.cloud);
   const syncCloud = useUsage((s) => s.syncCloud);
 
@@ -26,6 +29,7 @@ export function WebAccount() {
 
   return (
     <span className="mr-2 flex items-center gap-2 text-xs">
+      <button disabled={saving} onClick={()=>void saveDocument()} className="rounded-md bg-accent px-3 py-1.5 text-white">{saving ? "Saving…" : "Save online"}</button>
       <a
         href={siteUrl("/download")}
         target="_blank"

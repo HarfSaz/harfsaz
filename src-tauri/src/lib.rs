@@ -1,6 +1,7 @@
 //! Harfsaz — Tauri application entry. Wires the Nastaliq shaper and the Claude AI
 //! bridge as invokable commands the React frontend can call.
 
+mod account;
 mod ai;
 mod inpage;
 mod printing;
@@ -178,6 +179,8 @@ pub fn run() {
         .plugin(tauri_plugin_dialog::init())
         .plugin(tauri_plugin_fs::init())
         .invoke_handler(tauri::generate_handler![
+            account::desktop_account,
+            account::desktop_ai,
             shape_text,
             layout_text,
             ai_task,

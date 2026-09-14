@@ -104,8 +104,7 @@ export function aiTask(params: {
   instruction?: string;
   model?: string;
 }): Promise<AiResponse> {
-  if (!isTauri()) return cloudAi<AiResponse>({ op: "task", task: params.task, text: params.text, instruction: params.instruction });
-  return invoke<AiResponse>("ai_task", { req: params });
+  return cloudAi<AiResponse>({ op: "task", task: params.task, text: params.text, instruction: params.instruction });
 }
 
 export interface ChatMessage {
@@ -115,8 +114,7 @@ export interface ChatMessage {
 
 /** Multi-turn chat with conversation context (the AI panel thread). */
 export function aiChat(messages: ChatMessage[], system: string): Promise<AiResponse> {
-  if (!isTauri()) return cloudAi<AiResponse>({ op: "chat", messages, system });
-  return invoke<AiResponse>("ai_chat", { messages, system });
+  return cloudAi<AiResponse>({ op: "chat", messages, system });
 }
 
 export interface Correction {
@@ -131,15 +129,13 @@ export interface ProofreadResult {
 }
 
 /** Inline, non-destructive proofread: returns span-level corrections to apply. */
-export function aiProofreadInline(text: string, model?: string): Promise<ProofreadResult> {
-  if (!isTauri()) return cloudAi<ProofreadResult>({ op: "proofread_inline", text });
-  return invoke<ProofreadResult>("ai_proofread_inline", { text, model });
+export function aiProofreadInline(text: string, _model?: string): Promise<ProofreadResult> {
+  return cloudAi<ProofreadResult>({ op: "proofread_inline", text });
 }
 
 /** Add diacritics/harakat (تشكيل) to RTL text. lang = base code (ar/fa/ur). */
-export function aiAddDiacritics(text: string, lang: string, model?: string): Promise<AiResponse> {
-  if (!isTauri()) return cloudAi<AiResponse>({ op: "diacritics", text, lang });
-  return invoke<AiResponse>("ai_add_diacritics", { text, lang, model });
+export function aiAddDiacritics(text: string, lang: string, _model?: string): Promise<AiResponse> {
+  return cloudAi<AiResponse>({ op: "diacritics", text, lang });
 }
 
 export type TransformAction =
@@ -154,10 +150,9 @@ export function aiTransform(params: {
   lang?: string;
   model?: string;
 }): Promise<AiResponse> {
-  if (!isTauri()) {
+  {
     return cloudAi<AiResponse>({ op: "transform", text: params.text, action: params.action, instruction: params.instruction, lang: params.lang });
   }
-  return invoke<AiResponse>("ai_transform", params);
 }
 
 export interface OcrResult {
@@ -184,7 +179,7 @@ export function aiOcr(params: {
   instruction?: string;
   model?: string;
 }): Promise<OcrResult> {
-  if (!isTauri()) {
+  {
     return cloudAi<OcrResult>({
       op: "ocr",
       data: params.data,
@@ -195,19 +190,16 @@ export function aiOcr(params: {
       instruction: params.instruction,
     });
   }
-  return invoke<OcrResult>("ai_ocr", params);
 }
 
 export function aiKeyPresent(): Promise<boolean> {
   // In the browser "a key" means a signed-in Harfsaz account (hosted AI).
-  if (!isTauri()) return cloudMe().then((me) => me !== null);
-  return invoke<boolean>("ai_key_present");
+  return cloudMe().then((me) => me !== null);
 }
 
 /** Name of the active AI provider (Claude / DeepSeek / Mistral / OpenAI / Claude CLI). */
 export function aiProvider(): Promise<string> {
-  if (!isTauri()) return Promise.resolve("Harfsaz Cloud");
-  return invoke<string>("ai_provider");
+  return Promise.resolve("Harfsaz AI");
 }
 
 export interface AiSettingsView {

@@ -100,6 +100,7 @@ interface DocState {
   future: Page[][]; // redo stack
   /** Bumped on undo/redo/load so editors force-reseed their DOM even if focused. */
   revision: number;
+  documentEpoch: number;
 
   setTool: (tool: Tool) => void;
   addPage: () => void;
@@ -331,6 +332,7 @@ export const useDoc = create<DocState>((set, get) => {
   past: [],
   future: [],
   revision: 0,
+  documentEpoch: 0,
 
   setTool: (tool) => set({ activeTool: tool }),
 
@@ -524,6 +526,7 @@ export const useDoc = create<DocState>((set, get) => {
         pages: [p],
         activePageId: p.id,
         selectedFrameId: p.frames[0].id,
+        documentEpoch: s.documentEpoch + 1,
         filePath: null,
         fileName: "Untitled",
         dirty: false,
@@ -544,6 +547,7 @@ export const useDoc = create<DocState>((set, get) => {
         pages,
         activePageId: pages[0]?.id ?? "",
         selectedFrameId: pages[0]?.frames[0]?.id ?? null,
+        documentEpoch: s.documentEpoch + 1,
         filePath: path,
         fileName: name,
         dirty: false,

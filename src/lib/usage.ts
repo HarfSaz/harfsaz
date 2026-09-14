@@ -1,18 +1,4 @@
-// AI usage meter.
-//
-// Desktop: a daily free-tier token counter in localStorage (client-side — an
-// honest freemium UX, not enforcement; see the note below). Saving an own API
-// key switches to "byok" (uncapped).
-//
-// Web editor: the server is the meter. `syncCloud()` pulls the signed-in
-// account's plan and remaining actions from /api/v1/me; `record()` only keeps
-// the local number in step between syncs. Quota is enforced by the API.
-//
-// IMPORTANT (honest security note): the desktop counter is CLIENT-SIDE — fine
-// for an honest freemium UX, but a determined user can bypass it. Real
-// enforcement lives in the hosted API, which holds the key.
 import { create } from "zustand";
-import { isTauri } from "./tauri";
 import { cloudMe } from "./cloud";
 
 /** Free tier (desktop): tokens per day. Pro tiers raise/remove this. */
@@ -89,30 +75,15 @@ export const useUsage = create<UsageState>((set, get) => ({
 
   remaining: () => {
     const s = get();
-    if (!isTauri()) {
-      // Web: the account's remaining actions; anonymous users have none.
-      if (!s.cloud?.signedIn) return 0;
-      return Math.max(0, s.cloud.remaining);
-    }
-    if (s.plan !== "free") return Infinity;
-    const used = s.day === today() ? s.used : 0;
-    return Math.max(0, FREE_DAILY_TOKENS - used);
+    return s.cloud?.signedIn ? Math.max(0, s.cloud.remaining) : 0;
   },
 
   canUse: () => get().remaining() > 0,
 
-  record: (tokens) =>
-    set((s) => {
-      if (!isTauri()) {
-        if (!s.cloud) return s;
-        return { cloud: { ...s.cloud, remaining: Math.max(0, s.cloud.remaining - 1) } };
-      }
-      const d = today();
-      const used = (s.day === d ? s.used : 0) + Math.max(0, Math.round(tokens));
-      const next = { plan: s.plan, day: d, used };
-      save(next);
-      return next;
-    }),
+  record: (_tokens) => {
+    set(s => s.cloud ? {cloud:{...s.cloud,remaining:Math.max(0,s.cloud.remaining-1)}} : s);
+    void get().syncCloud();
+  },
 
   rollDay: () =>
     set((s) => {
@@ -138,7 +109,6 @@ export const useUsage = create<UsageState>((set, get) => ({
     }),
 
   syncCloud: async () => {
-    if (isTauri()) return;
     const me = await cloudMe();
     if (!me) {
       set({ cloud: { signedIn: false, email: null, plan: "free", window: "day", actions: 0, remaining: 0 }, plan: "free" });

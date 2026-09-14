@@ -133,7 +133,7 @@ export function OcrDialog() {
   async function extract() {
     if (!file || busy) return;
     if (!canUse) {
-      setError("Daily free AI limit reached — upgrade or add your own key in Settings.");
+      setError("Your AI allowance is used up. View your plan for more details.");
       setUpgradeOpen(true);
       return;
     }

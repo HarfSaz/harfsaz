@@ -1,3 +1,4 @@
+import { useWorkspace } from "./workspace";
 // Global keyboard shortcuts + auto-save. Mounted once from App.
 import { useEffect } from "react";
 import { useDoc } from "./store";
@@ -30,6 +31,7 @@ const AUTOSAVE_MS = 30_000;
 export function useShortcuts() {
   useEffect(() => {
     function onKey(e: KeyboardEvent) {
+      if (useWorkspace.getState().view !== "editor") return;
       const doc = useDoc.getState();
       const ui = useUi.getState();
 
@@ -138,7 +140,7 @@ export function useShortcuts() {
 
   // Offer to restore work left behind by a crash. Runs once, on mount.
   useEffect(() => {
-    offerRecovery().catch(() => {});
+    offerRecovery().then(restored => { if(restored) useWorkspace.getState().setView("editor"); }).catch(() => {});
   }, []);
 
   // Keep every font the document references registered as a CSS @font-face.

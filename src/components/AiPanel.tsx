@@ -1,14 +1,14 @@
+import { useWorkspace } from "../lib/workspace";
 import { useEffect, useRef, useState } from "react";
 import { CheckAll as CheckCheck, Sparkles, Settings } from "./ui/icons";
 import {
   aiChat,
-  aiKeyPresent,
   aiProofreadInline,
   aiAddDiacritics,
   ChatMessage,
   isTauri,
 } from "../lib/tauri";
-import { CloudError, loginUrl, siteUrl } from "../lib/cloud";
+import { CloudError, loginUrl, openAccountPage } from "../lib/cloud";
 import { useDoc, useSelectedFrame } from "../lib/store";
 import { useSuggestions } from "../lib/suggestions";
 import { getLanguage } from "../lib/languages";
@@ -49,12 +49,10 @@ export function AiPanel() {
   );
 
   // Daily free-tier meter.
-  const plan = useUsage((s) => s.plan);
   const remaining = useUsage((s) => s.remaining());
   const canUse = useUsage((s) => s.canUse());
   const record = useUsage((s) => s.record);
   const rollDay = useUsage((s) => s.rollDay);
-  const setPlan = useUsage((s) => s.setPlan);
   const cloud = useUsage((s) => s.cloud);
   const syncCloud = useUsage((s) => s.syncCloud);
   const setUpgradeOpen = useUi((s) => s.setUpgradeOpen);
@@ -80,27 +78,14 @@ export function AiPanel() {
     threadRef.current?.scrollTo({ top: threadRef.current.scrollHeight, behavior: "smooth" });
   }, [messages, busy]);
 
-  // Re-check key presence on mount and when Settings closes. A saved own-key
-  // uncaps usage (BYOK) — the meter only protects a hosted/free tier.
+  // Refresh account allowance after browser sign-in or a plan change.
   useEffect(() => {
-    if (settingsOpen) return;
-    if (!isTauri()) {
-      // Web editor: a signed-in Harfsaz account is the "key"; quota comes from
-      // the server. Re-checked whenever the tab regains focus (sign-in opens
-      // in a new tab so an unsaved document here is never lost).
-      const check = () => syncCloud().then(() => setKeyOk(useUsage.getState().cloud?.signedIn ?? false));
-      check();
-      window.addEventListener("focus", check);
-      return () => window.removeEventListener("focus", check);
-    }
-    aiKeyPresent()
-      .then((ok) => {
-        setKeyOk(ok);
-        if (ok && plan === "free") setPlan("byok");
-      })
-      .catch(() => setKeyOk(false));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [settingsOpen]);
+    let active = true;
+    const check = () => syncCloud().then(() => { if (active) setKeyOk(useUsage.getState().cloud?.signedIn ?? false); });
+    void check();
+    window.addEventListener("focus", check);
+    return () => {active = false; window.removeEventListener("focus", check);};
+  }, [syncCloud, settingsOpen]);
 
   /** Turn an AI failure into the right UI: sign-in, upgrade, or a message. */
   function handleAiError(e: unknown) {
@@ -130,7 +115,7 @@ export function AiPanel() {
     if (!canUse) {
       setError(
         isTauri()
-          ? "Daily free AI limit reached — upgrade or add your own key."
+          ? "Your AI allowance is used up. View your plan for more details."
           : `You've used your ${cloud?.window === "month" ? "monthly" : "daily"} AI actions — upgrade for more.`
       );
       setUpgradeOpen(true);
@@ -241,56 +226,28 @@ export function AiPanel() {
                 Clear
               </button>
             )}
-            {isTauri() ? (
-              <button
-                aria-label="AI settings" title="AI settings (provider & key)"
-                className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
-                onClick={() => setSettingsOpen(true)}
-              >
-                <Settings size={16} />
-              </button>
-            ) : (
-              cloud?.signedIn && (
-                <a
-                  aria-label="Account" title="Your Harfsaz account and plan"
-                  className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
-                  href={siteUrl("/account")} target="_blank" rel="noopener"
-                >
-                  <Settings size={16} />
-                </a>
-              )
-            )}
+            <button aria-label="AI plan" title="AI plan"
+              className="rounded-md p-1 text-ink-soft hover:bg-paper-edge"
+              onClick={() => setUpgradeOpen(true)}><Settings size={16} /></button>
           </div>
         </div>
       </div>
 
-      {keyOk === false && isTauri() && (
+      {keyOk === false && (
         <div className="ai-setup">
           <strong>A little help with your next draft.</strong>
-          Connect your AI provider to write, translate, and proofread in Urdu, Persian, Arabic, or English.
-          <button onClick={() => setSettingsOpen(true)}>Connect AI provider →</button>
+          Sign in to write, translate, and proofread in Urdu, Persian, Arabic, or English.
+          {isTauri() ? <button onClick={() => openAccountPage().catch(e => setError(String(e)))}>Your Harfsaz account →</button>
+            : <a href={loginUrl()} target="_blank" rel="noopener">Sign in to Harfsaz →</a>}
         </div>
       )}
-      {keyOk === false && !isTauri() && (
+      {keyOk === null && <p role="status" className="text-xs text-ink-soft">Checking your AI allowance…</p>}
+      {keyOk === true && cloud && (
         <div className="ai-setup">
-          <strong>A little help with your next draft.</strong>
-          Sign in to write, translate, and proofread in Urdu, Persian, Arabic, or English — free, 20 actions a day.
-          <a href={loginUrl()} target="_blank" rel="noopener">Sign in to Harfsaz →</a>
-        </div>
-      )}
-      {keyOk === null && <p role="status" className="text-xs text-ink-soft">Checking AI connection…</p>}
-      {keyOk === true && (
-        <div className="text-[11px] text-ink-soft">
-          {!isTauri() && cloud ? (
-            <a href={siteUrl(cloud.plan === "free" ? "/pricing" : "/account")} target="_blank" rel="noopener" className="hover:text-ink">
-              {remaining.toLocaleString()} of {cloud.actions} AI actions left {cloud.window === "day" ? "today" : "this month"}
-              {cloud.plan === "free" ? " · Upgrade →" : " · Pro"}
-            </a>
-          ) : plan === "free" ? (
-            `${remaining.toLocaleString()} tokens available today`
-          ) : (
-            "Connected · Your AI provider"
-          )}
+          <strong>{cloud.plan === "free" ? "Harfsaz AI · Free" : "Harfsaz AI · " + (cloud.plan === "org" ? "Organization" : "Pro")}</strong>
+          <span>{remaining.toLocaleString()} of {cloud.actions} actions left {cloud.window === "day" ? "today" : "this month"}.</span>
+          {cloud.plan === "free" ? <button onClick={() => setUpgradeOpen(true)}>Upgrade to Pro →</button>
+            : <button onClick={() => { useWorkspace.getState().setSection("billing"); }}>Manage plan →</button>}
         </div>
       )}
 
@@ -419,7 +376,7 @@ export function AiPanel() {
           dir="auto"
           aria-label="Message writing assistant"
           disabled={keyOk !== true}
-          placeholder={keyOk === true ? "Ask your writing assistant…" : isTauri() ? "Connect a provider to get started" : "Sign in to get started"}
+          placeholder={keyOk === true ? "Ask your writing assistant…" : "Sign in to get started"}
           value={input}
           onChange={(e) => setInput(e.target.value)}
           onKeyDown={(e) => {

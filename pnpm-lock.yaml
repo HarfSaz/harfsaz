@@ -44,6 +44,9 @@ importers:
       clsx:
         specifier: ^2.1.1
         version: 2.1.1
+      dompurify:
+        specifier: 3.4.7
+        version: 3.4.7
       html2canvas-pro:
         specifier: ^2.0.4
         version: 2.0.4
@@ -2676,7 +2679,6 @@ snapshots:
   dompurify@3.4.7:
     optionalDependencies:
       '@types/trusted-types': 2.0.7
-    optional: true
 
   electron-to-chromium@1.5.364: {}
 

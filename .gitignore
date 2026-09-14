@@ -19,3 +19,9 @@ src-tauri/gen
 
 # claude code local settings
 .claude/settings.local.json
+
+# Local QA captures and private deployment configuration
+.playwright-mcp/
+.env.*
+!.env.example
+docs/releases/production-dns.md

@@ -1,6 +1,6 @@
 import { useEffect, useRef } from "react";
 import { transliterate } from "./phonetic";
-import { clipboardToLines, escapeHtml } from "./sanitize";
+import { clipboardToLines, escapeHtml, sanitizeStoredHtml } from "./sanitize";
 import { LangCode, Dir } from "../lib/languages";
 
 /**
@@ -68,7 +68,7 @@ export function RichEditor({
       revChanged || // undo/redo/load: always reseed
       (!isFocused && el.innerHTML !== (html ?? ""))
     ) {
-      el.innerHTML = html && html.length > 0 ? html : seedHtml(fallbackText);
+      el.innerHTML = html && html.length > 0 ? (sanitizeStoredHtml(html) ?? "") : seedHtml(fallbackText);
       initialized.current = true;
       lastEmitted.current = el.innerHTML;
       // Restore caret to the end after a forced reseed so typing can continue.

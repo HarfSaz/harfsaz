@@ -1,3 +1,5 @@
+import { useWorkspace } from "../lib/workspace";
+import { isTauri } from "../lib/tauri";
 import { Sparkles, Undo, Redo } from "./ui/icons";
 import { useDoc, useSelectedFrame } from "../lib/store";
 import { IconTip } from "./ui/tooltip";
@@ -9,6 +11,7 @@ import { importPdfDocument, importInpageDocument } from "../lib/importers";
 import { LANGUAGES, languagePatch, LangCode } from "../lib/languages";
 import {
   saveDocument,
+  downloadDocument,
   saveDocumentAs,
   openDocument,
   newDocumentGuarded,
@@ -82,6 +85,7 @@ export function MenuBar() {
   return (
     <header className="editor-header flex items-center justify-between gap-4 border-b border-line bg-paper px-5 py-3">
       <div className="editor-menus flex min-w-0 items-center gap-0.5">
+        {<button className="mr-2 text-xs" onClick={() => useWorkspace.getState().setView("workspace")} title="Return to workspace">← Workspace</button>}
         {/* Brand (logo) + current file name */}
         <span className="document-brand mr-4 flex shrink-0 items-center gap-3 border-r border-line pr-5">
           <img src={`${import.meta.env.BASE_URL}logo.png`} alt="Harfsaz" className="h-[22px] w-auto" />
@@ -94,12 +98,13 @@ export function MenuBar() {
         <Menu label="File">
           <MenuItem onSelect={newDocumentGuarded} shortcut="⌘⇧N">New document</MenuItem>
           <MenuItem onSelect={addPage} shortcut="⌘N">New page</MenuItem>
-          <MenuItem onSelect={() => openDocument()} shortcut="⌘O">Open…</MenuItem>
+          <MenuItem onSelect={() => openDocument()} shortcut="⌘O">{isTauri() ? "Open…" : "Import from computer…"}</MenuItem>
           <MenuItem onSelect={() => importPdfDocument()}>Import PDF…</MenuItem>
           <MenuItem onSelect={() => importInpageDocument()}>Import InPage (.inp)…</MenuItem>
           <MenuSeparator />
           <MenuItem onSelect={() => saveDocument()} shortcut="⌘S">Save</MenuItem>
-          <MenuItem onSelect={() => saveDocumentAs()} shortcut="⇧⌘S">Save As…</MenuItem>
+          <MenuItem onSelect={() => saveDocumentAs()} shortcut="⇧⌘S">{isTauri() ? "Save As…" : "Save a copy…"}</MenuItem>
+          {!isTauri() && <MenuItem onSelect={downloadDocument}>Download .harfsaz</MenuItem>}
           <MenuSeparator />
           <MenuItem onSelect={() => setPrintOpen(true)} shortcut="⌘P">Print…</MenuItem>
           <MenuItem onSelect={() => setPrintOpen(true)}>Export PDF…</MenuItem>

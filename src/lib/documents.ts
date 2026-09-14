@@ -1,3 +1,5 @@
+import { saveOnlineDocument, useOnlineDocuments } from "./webDocuments";
+import { useWorkspace } from "./workspace";
 // Document persistence: save/open .harfsaz files (JSON) via Tauri's dialog + fs.
 // A .harfsaz file is the serialized DocFile { version, pages }.
 import { save as saveDialog, open as openDialog, ask } from "@tauri-apps/plugin-dialog";
@@ -24,7 +26,7 @@ function defaultPath(): string {
 
 /** Save to the current file path, or prompt for one if none (Save / ⌘S). */
 export async function saveDocument(): Promise<boolean> {
-  if (!isTauri()) return saveDocumentWeb();
+  if (!isTauri()) return saveOnlineDocument();
   const { filePath, toDocFile, markSaved } = useDoc.getState();
   let path = filePath;
   if (!path) {
@@ -48,7 +50,7 @@ export async function saveDocument(): Promise<boolean> {
 
 /** Always prompt for a new path (Save As / ⇧⌘S). */
 export async function saveDocumentAs(): Promise<boolean> {
-  if (!isTauri()) return saveDocumentWeb();
+  if (!isTauri()) return saveOnlineDocument(true);
   const { toDocFile, markSaved } = useDoc.getState();
   const picked = await saveDialog({ filters: SAVE_FILTER, defaultPath: defaultPath() });
   if (!picked) return false;
@@ -65,12 +67,12 @@ export async function saveDocumentAs(): Promise<boolean> {
 }
 
 /** Prompt to open a .harfsaz file and load it (Open / ⌘O). */
-export async function openDocument(): Promise<boolean> {
+export async function openDocument(recentPath?: string): Promise<boolean> {
   const { dirty, loadDocument } = useDoc.getState();
   if (dirty && !confirm("Discard unsaved changes and open another document?")) return false;
   if (!isTauri()) return openDocumentWeb();
 
-  const picked = await openDialog({ filters: OPEN_FILTER, multiple: false });
+  const picked = recentPath ?? await openDialog({ filters: OPEN_FILTER, multiple: false });
   if (!picked || Array.isArray(picked)) return false;
 
   let raw: string;
@@ -93,6 +95,7 @@ export async function openDocument(): Promise<boolean> {
     return false;
   }
   loadDocument(doc, picked, baseName(picked));
+  useWorkspace.getState().remember({ path: picked, name: baseName(picked), openedAt: Date.now(), pages: doc.pages.length, language: doc.pages[0]?.frames[0]?.lang ?? "ur" });
   void clearRecovery();
   return true;
 }
@@ -123,7 +126,7 @@ export function newDocumentGuarded(): boolean {
  *  error on the store instead, and the status bar shows it until a save works.
  */
 export async function autoSave(): Promise<void> {
-  if (!isTauri()) return;
+  if (!isTauri()) { await saveOnlineDocument(false, true); return; }
   const { filePath, dirty, toDocFile } = useDoc.getState();
   if (!filePath || !dirty) return;
 
@@ -224,9 +227,10 @@ const RECOVERY_FILE = "recovery.harfsaz.json";
 
 /** Absolute path of the recovery file (creating the app data dir if needed). */
 async function recoveryPath(): Promise<string> {
+  const owner = useWorkspace.getState().profile?.user.id ?? "guest";
   const dir = await appLocalDataDir();
   if (!(await exists(dir))) await mkdir(dir, { recursive: true });
-  return join(dir, RECOVERY_FILE);
+  return join(dir, `${owner}-${RECOVERY_FILE}`);
 }
 
 /** Mirror the current document to the recovery file (unsaved docs only). */
@@ -251,7 +255,7 @@ export async function writeRecovery(): Promise<void> {
 export async function clearRecovery(): Promise<void> {
   if (!isTauri()) {
     try {
-      localStorage.removeItem(WEB_RECOVERY_KEY);
+      localStorage.removeItem(webRecoveryKey());
     } catch {
       /* ignore */
     }
@@ -271,6 +275,7 @@ export async function clearRecovery(): Promise<void> {
  * Call once when the app mounts. Returns true if a document was restored.
  */
 let recoveryOffered = false;
+export function resetRecoveryOffer() { recoveryOffered = false; }
 
 export async function offerRecovery(): Promise<boolean> {
   // React StrictMode mounts effects twice in dev, which would show this dialog
@@ -282,7 +287,14 @@ export async function offerRecovery(): Promise<boolean> {
   let payload: { savedAt: number; fileName: string; doc: DocFile };
   try {
     const path = await recoveryPath();
-    if (!(await exists(path))) return false;
+    if (!(await exists(path))) {
+      // Adopt the pre-workspace recovery file once, so upgrading does not hide
+      // unsaved work left by the earlier desktop editor on this computer.
+      const legacy = await join(await appLocalDataDir(), RECOVERY_FILE);
+      if (!(await exists(legacy))) return false;
+      await writeTextFile(path, await readTextFile(legacy));
+      await remove(legacy);
+    }
     payload = JSON.parse(await readTextFile(path));
   } catch {
     return false; // unreadable/corrupt recovery file — nothing to offer
@@ -317,25 +329,14 @@ export async function offerRecovery(): Promise<boolean> {
 // ── Web editor (browser) fallbacks ───────────────────────────────────────────
 //
 // The same editor is served at harfsaz.com/app. There are no native dialogs or
-// file system there: Save downloads the .harfsaz file, Open reads one from a
-// picker, and the recovery mirror lives in localStorage.
+// file system there: Save uses account storage, Download exports a local copy,
+// and the account-scoped recovery mirror lives in localStorage.
 
-const WEB_RECOVERY_KEY = "harfsaz.web.recovery.v1";
+const webRecoveryKey = () => `harfsaz.web.recovery.v2.${useOnlineDocuments.getState().ownerId ?? "guest"}`;
 
-async function saveDocumentWeb(): Promise<boolean> {
-  const { toDocFile, markSaved } = useDoc.getState();
-  const name = defaultPath();
-  try {
-    downloadBytes(name, JSON.stringify(toDocFile(), null, 2), "application/json");
-  } catch (e) {
-    useDoc.getState().setSaveError(String(e));
-    alert(`Could not download the document.\n\n${e}`);
-    return false;
-  }
-  // No path in the browser: the download is the save. Keep the name.
-  markSaved("", baseName(name));
-  void clearRecovery();
-  return true;
+/** Download an independent copy without changing the online save state. */
+export function downloadDocument(): void {
+  downloadBytes(defaultPath(), JSON.stringify(useDoc.getState().toDocFile(), null, 2), "application/json");
 }
 
 async function openDocumentWeb(): Promise<boolean> {
@@ -353,6 +354,7 @@ async function openDocumentWeb(): Promise<boolean> {
     return false;
   }
   useDoc.getState().loadDocument(doc, null, baseName(file.name));
+  useDoc.setState({dirty:true});
   void clearRecovery();
   return true;
 }
@@ -361,7 +363,7 @@ function writeRecoveryWeb(): void {
   const { dirty, toDocFile, fileName } = useDoc.getState();
   if (!dirty) return;
   try {
-    localStorage.setItem(WEB_RECOVERY_KEY, JSON.stringify({ savedAt: Date.now(), fileName, doc: toDocFile() }));
+    localStorage.setItem(webRecoveryKey(), JSON.stringify({ savedAt: Date.now(), fileName, doc: toDocFile() }));
   } catch {
     /* quota exceeded or private mode — best effort */
   }
@@ -370,7 +372,7 @@ function writeRecoveryWeb(): void {
 function offerRecoveryWeb(): boolean {
   let payload: { savedAt: number; fileName: string; doc: DocFile } | null = null;
   try {
-    const raw = localStorage.getItem(WEB_RECOVERY_KEY);
+    const raw = localStorage.getItem(webRecoveryKey());
     payload = raw ? JSON.parse(raw) : null;
   } catch {
     payload = null;

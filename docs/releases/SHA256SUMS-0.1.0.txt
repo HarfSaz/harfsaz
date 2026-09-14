@@ -1,0 +1,2 @@
+a1cc686c052aff084463e7da8dd96e7ed867b044a879bff6c4edc1c0f5c10572  Harfsaz_0.1.0_aarch64.dmg
+61c4cd0c107b96e4dff61939a9d2a6117ab8c9c923138b2ca3debe10ccf718c9  Harfsaz_0.1.0_arm64.deb

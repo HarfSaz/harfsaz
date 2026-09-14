@@ -39,16 +39,17 @@ const UNWRAP_TAGS = new Set(["FONT", "TT", "CODE", "KBD", "SAMP", "VAR", "PRE", 
 /** Elements that must be dropped along with their content. */
 const DROP_TAGS = new Set(["SCRIPT", "STYLE", "META", "LINK", "HEAD", "TITLE", "TEMPLATE", "IFRAME", "OBJECT"]);
 
-/** Quick test so the common case (clean HTML) costs a few regex checks, not a DOM parse. */
-const SUSPICIOUS = /<font\b|font-family|font-size|caret-color|white-space-collapse|line-height|letter-spacing|background|<pre\b|<tt\b|<meta\b|<style\b|\sclass=|\sface=/i;
+const ALLOWED_TAGS = new Set("DIV P BR SPAN STRONG EM B I U S STRIKE SUP SUB OL UL LI TABLE THEAD TBODY TFOOT TR TH TD CAPTION COLGROUP COL H1 H2 H3 H4 H5 H6 BLOCKQUOTE".split(" "));
+const ALLOWED_ATTRS = new Set(["style", "dir", "colspan", "rowspan", "start", "data-harfsaz-style", "data-harfsaz-table"]);
+const ALLOWED_STYLES = new Set(["color", "font-size", "font-weight", "font-style", "text-decoration", "text-decoration-line", "text-align", "line-height", "margin-left", "margin-right", "margin-top", "margin-bottom", "padding", "padding-left", "padding-right", "border", "border-width", "border-color", "border-style", "border-collapse", "width", "height", "vertical-align", "border-image-source", "border-image-slice", "border-image-width", "border-image-outset", "border-image-repeat", "padding-top", "padding-bottom", "table-layout", "list-style-type", "list-style-position", "text-indent", "margin-inline-start", "margin-inline-end", "margin-block", "margin-block-start", "margin-block-end", "padding-inline-start", "padding-inline-end"]);
 
 /**
  * Remove source typography from stored/edited HTML, keeping structure and the
- * editor's own formatting. Idempotent; returns the input unchanged when clean.
+ * editor's own formatting. Every imported value is checked, including short HTML.
  */
 export function sanitizeStoredHtml(html: string | undefined): string | undefined {
-  if (!html || !SUSPICIOUS.test(html)) return html;
-  if (typeof DOMParser === "undefined") return html; // non-browser context
+  if (!html) return html;
+  if (typeof DOMParser === "undefined") return escapeHtml(html); // fail closed without a DOM
 
   const doc = new DOMParser().parseFromString(`<body>${html}</body>`, "text/html");
   const body = doc.body;
@@ -68,12 +69,13 @@ export function sanitizeStoredHtml(html: string | undefined): string | undefined
       continue;
     }
 
-    // Pasted classes point at stylesheets we don't have; they are noise at best.
-    el.removeAttribute("class");
-    el.removeAttribute("id");
-    el.removeAttribute("face");
-    el.removeAttribute("size");
-    el.removeAttribute("lang"); // the frame owns language
+    if (el.namespaceURI !== "http://www.w3.org/1999/xhtml" || !ALLOWED_TAGS.has(el.tagName)) {
+      el.remove();
+      continue;
+    }
+    for (const attribute of Array.from(el.attributes)) {
+      if (!ALLOWED_ATTRS.has(attribute.name)) el.removeAttribute(attribute.name);
+    }
 
     const style = (el as HTMLElement).style;
     if (style && style.length) {
@@ -81,7 +83,7 @@ export function sanitizeStoredHtml(html: string | undefined): string | undefined
         const ownParagraph = /^(DIV|P|LI|H[1-6])$/.test(el.tagName) &&
           ["body", "heading", "subheading", "caption"].includes(el.getAttribute("data-harfsaz-style") ?? "");
         const paragraphMetric = ownParagraph && (prop === "font-size" || prop === "line-height");
-        if (STRIP_STYLE_PROPS.has(prop) && !paragraphMetric) style.removeProperty(prop);
+        if ((!ALLOWED_STYLES.has(prop) && !/^border-(top|right|bottom|left)(-(width|style|color))?$/.test(prop)) || /url\s*\(|expression|@import|var\s*\(/i.test(style.getPropertyValue(prop)) || (STRIP_STYLE_PROPS.has(prop) && !paragraphMetric)) style.removeProperty(prop);
       }
       if (!style.length) el.removeAttribute("style");
     }

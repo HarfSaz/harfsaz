@@ -1,9 +1,6 @@
-// Harfsaz cloud: the hosted account + AI API used by the web editor.
-//
-// The web editor is served by the same origin as the API (harfsaz.com/app), so
-// the session cookie authenticates every call and no token is handled here.
-// The desktop app keeps its own key locally and does not use this module for
-// AI; it only uses `siteUrl()` to link to pricing and sign-in pages.
+import { useWorkspace } from "./workspace";
+// Account-managed AI for web and desktop. Desktop credentials stay in Rust.
+import { invoke } from "@tauri-apps/api/core";
 import { isTauri } from "./tauri";
 
 /** Public site origin for links (the desktop app has no same-origin site). */
@@ -18,9 +15,14 @@ export function loginUrl(): string {
 }
 
 export interface CloudMe {
-  user: { id: string; email: string; name: string | null };
+  user: { id: string; email: string; name: string | null; firstName?: string | null; lastName?: string | null };
   plan: "free" | "pro" | "org";
   planName: string;
+  interval?: string | null;
+  status?: string;
+  currentPeriodEnd?: string | null;
+  cancelAtPeriodEnd?: boolean;
+  billing?: {canManage:boolean;currency:string;proMonthly:number;proYearly:number|null;proActions:number};
   quota: { window: "day" | "month"; actions: number; used: number; remaining: number; resetsAt: string };
 }
 
@@ -37,6 +39,10 @@ export class CloudError extends Error {
 /** Who is signed in (null when anonymous or offline). */
 export async function cloudMe(): Promise<CloudMe | null> {
   try {
+    if (isTauri()) {
+      const result = await invoke<{status:string;profile?:CloudMe}>("desktop_account", {action:"status"});
+      return result.status === "signed_in" ? result.profile ?? null : null;
+    }
     const r = await fetch(siteUrl("/api/v1/me"), { credentials: "include", cache: "no-store" });
     if (r.status === 401) return null;
     if (!r.ok) return null;
@@ -48,6 +54,11 @@ export async function cloudMe(): Promise<CloudMe | null> {
 
 /** POST one AI operation to the hosted proxy; response shapes match the Rust commands. */
 export async function cloudAi<T>(body: Record<string, unknown>): Promise<T> {
+  if (isTauri()) {
+    const result = await invoke<{status:number;body:T & {error?:string;code?:"auth"|"quota"}}>("desktop_ai", {body});
+    if (result.status >= 400) throw new CloudError(result.body.error ?? "Harfsaz AI is unavailable.", result.status, result.body.code);
+    return result.body;
+  }
   let r: Response;
   try {
     r = await fetch(siteUrl("/api/v1/ai"), {
@@ -65,4 +76,11 @@ export async function cloudAi<T>(body: Record<string, unknown>): Promise<T> {
     throw new CloudError(j.error ?? `AI request failed (${r.status}).`, r.status, code);
   }
   return j as T;
+}
+
+/** Open account pages in the desktop browser, using the configured server. */
+export async function openAccountPage(page: "account" | "pricing" = "account") {
+  if (isTauri()) await invoke("desktop_account", {action:page === "pricing" ? "pricing" : "manage"});
+  else if (page === "pricing") useWorkspace.getState().setSection("billing");
+  else window.open(siteUrl(`/${page}`), "_blank", "noopener");
 }
