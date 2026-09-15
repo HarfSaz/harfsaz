@@ -4,7 +4,7 @@ import { isTauri } from "../lib/tauri";
 import { useWorkspace } from "../lib/workspace";
 export function WorkspaceBilling() {
   const [me,setMe]=useState<CloudMe|null>(null),[error,setError]=useState("");
-  const [busy,setBusy]=useState(false),[loading,setLoading]=useState(true);
+  const [busy]=useState(false),[loading,setLoading]=useState(true);
   const [interval,setIntervalChoice]=useState<"month"|"year">("month");
   const checkout=new URLSearchParams(window.location.search).get("checkout");
   useEffect(()=>{
@@ -16,16 +16,14 @@ export function WorkspaceBilling() {
   },[checkout]);
   async function billing(action:"checkout"|"portal") {
     if(isTauri()){try{await openAccountPage("pricing");}catch(e){setError(String(e));}return;}
-    // Keep this editor tab and unsaved work intact during Stripe checkout.
-    const tab=window.open("about:blank","_blank");
-    if(!tab){setError("Allow a new tab to open billing, then try again.");return;}
-    tab.opener=null;setBusy(true);setError("");
-    try{
-      const account=await cloudMe();if(!account||account.user.id!==me?.user.id)throw Error("Your sign-in changed. Refresh your workspace before opening billing.");
-      const response=await fetch(siteUrl(`/api/v1/billing/${action}`),{method:"POST",credentials:"include",headers:{"content-type":"application/json"},body:JSON.stringify(action==="checkout"?{interval}:{})});
-      const result=await response.json();if(!response.ok||!result.url)throw Error(result.error||"Billing is unavailable. Please try again.");
-      tab.location.href=result.url;
-    }catch(e){tab.close();setError(e instanceof Error?e.message:String(e));}finally{setBusy(false);}
+    // Open the site's billing entry point directly from the click, so popup
+    // blockers allow it and the tab shows either Stripe or the reason it could
+    // not open. (A blank tab closed by a failed background fetch looked like a
+    // glitch and hid the cause.) The server checks the session and plan itself.
+    const url=siteUrl(`/api/v1/billing/go?action=${action}${action==="checkout"?`&interval=${interval}`:""}`);
+    const tab=window.open(url,"_blank");
+    if(!tab){setError("Your browser blocked the billing tab. Allow pop-ups for this site, then try again.");return;}
+    tab.opener=null;setError("");
   }
   const paid=me?.plan!=="free";
   const money=(value:number)=>new Intl.NumberFormat("en-US",{style:"currency",currency:me?.billing?.currency||"USD",maximumFractionDigits:0}).format(value);
