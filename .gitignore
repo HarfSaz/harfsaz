@@ -26,9 +26,7 @@ src-tauri/gen
 !.env.example
 docs/releases/production-dns.md
 
-# Tests are intentionally NOT published in the open-source editor repository.
-# Some of them import server-side sources from the private harfsaz-cloud repo,
-# so publishing them would leak private billing/service internals. They live in
-# harfsaz-cloud/tests-editor/ instead. (A .git/info/exclude entry was used once
-# and did not survive, because it is local-only and never committed.)
+# The test suite is maintained alongside the service it exercises and is not
+# part of this repository. Keep this rule: an earlier local-only exclude did
+# not persist, and the tests were published by accident.
 tests/

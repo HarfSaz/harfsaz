@@ -21,4 +21,4 @@ The application uses `https://harfsaz.com` by default. Production API credential
 
 The installer is unsigned unless Windows code signing is separately configured. macOS builds and Apple signing credentials are independent of this workflow.
 
-The full regression suite currently also requires the private `harfsaz-cloud` repository checked out beside this repository. It is not needed for the Windows build.
+The full regression suite is maintained outside this repository and is not needed for the Windows build.
